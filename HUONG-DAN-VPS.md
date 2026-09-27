@@ -135,4 +135,5 @@ Nếu trước đây bạn đã sửa giá khi mở file trên máy (dữ liệu
 | Vào web báo 502 Bad Gateway | `pm2 status` xem server có chạy không, `pm2 logs bang-gia` xem lỗi |
 | Sửa giá báo "Chưa lưu được lên máy chủ" | Phiên đăng nhập hết hạn (12 giờ), đăng nhập lại |
 | Báo "Sai mật khẩu quá nhiều lần" | Chờ 15 phút, hoặc đổi mật khẩu bằng lệnh ở trên |
+| Báo `Cổng 3000 đang có chương trình khác dùng` (EADDRINUSE) | Cổng đã bị web khác chiếm. Xem bằng `ss -ltnp \| grep :3000`, hoặc chạy cổng khác: `PORT=3100 node server.js` |
 | Đổi cổng khác 3000 | `PORT=4000 HOST=127.0.0.1 pm2 start server.js --name bang-gia`, sửa `proxy_pass` trong nginx cho khớp |

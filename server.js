@@ -303,6 +303,18 @@ const server = http.createServer(async (req, res) => {
     else res.end();
   }
 });
+server.on('error', e => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`\nCổng ${PORT} đang có chương trình khác dùng.`);
+    console.error(`- Xem chương trình nào đang dùng:  ss -ltnp | grep :${PORT}`);
+    console.error(`- Hoặc chạy bằng cổng khác, ví dụ:  PORT=3100 node server.js\n`);
+  } else if (e.code === 'EACCES') {
+    console.error(`\nKhông có quyền mở cổng ${PORT}. Hãy dùng cổng từ 1024 trở lên, ví dụ PORT=3100.\n`);
+  } else {
+    console.error('Lỗi khởi động server:', e.message);
+  }
+  process.exit(1);
+});
 server.listen(PORT, HOST, () => {
   log(`Bảng giá đang chạy tại http://${HOST === '0.0.0.0' ? 'IP-VPS' : HOST}:${PORT}`);
   log(`Dữ liệu lưu tại ${DATA_DIR}`);
