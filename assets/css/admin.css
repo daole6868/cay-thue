@@ -403,3 +403,52 @@ tr.drop-after td { box-shadow: inset 0 -2px 0 var(--accent); }
 .qp:not(.left) .qp-tab { order: 0; }
 .panel-h > .ph-ic + div { flex: 1; min-width: 0; }
 .bulk:not(.show), .savebar:not(.show) { visibility: hidden; transition: transform .45s var(--spring), visibility 0s .45s; }
+
+/* ---------- Cây Game › Danh mục › Sản phẩm ---------- */
+.tree-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tree-top h2 { margin: 0 0 2px; font-size: 18px; letter-spacing: -.01em; }
+.tree-top p { margin: 0; }
+.tree-top .inline { display: inline; vertical-align: -2px; }
+.filters.panel { border-radius: var(--r-lg); border: 1px solid var(--line); }
+.tree { display: flex; flex-direction: column; gap: 12px; }
+.tree-g { overflow: hidden; transition: border-color .3s, box-shadow .3s; }
+.tree-g.open { border-color: var(--accent-line); box-shadow: var(--shadow); }
+.tree-h { display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 10px; }
+.tree-tg {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px; border: 0; background: none; cursor: pointer;
+  border-radius: var(--r); text-align: left; color: var(--ink);
+  transition: background-color .2s;
+}
+.tree-tg:hover { background: var(--surface-2); }
+.tree-tg:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tree-t { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.tree-t b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-t small { font-size: 12.5px; color: var(--muted); }
+.tree-chev { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--muted); background: var(--surface-2); transition: transform .35s var(--ease), background-color .2s, color .2s; }
+.open > .tree-h .tree-chev { transform: rotate(180deg); background: var(--accent-soft); color: var(--accent); }
+.tree-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .4s var(--ease); }
+.open > .tree-body { grid-template-rows: 1fr; }
+.tree-body > div { overflow: hidden; min-height: 0; }
+.tree-g > .tree-body > div { border-top: 1px solid transparent; transition: border-color .3s; }
+.tree-g.open > .tree-body > div { border-top-color: var(--line); }
+.tree-cats { display: flex; flex-direction: column; gap: 10px; padding: 0 14px; }
+.tree-g.open > .tree-body > .tree-cats { padding-block: 14px; }
+.tree-c { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); overflow: hidden; transition: border-color .3s; }
+.tree-c.open { border-color: var(--accent-line); background: var(--surface); }
+.tree-c > .tree-h { padding: 6px 10px 6px 6px; }
+.tree-c .tree-t b { font-size: 14px; }
+.tree-c .tbl th { background: var(--surface-2); }
+.tree-c.open > .tree-body > div { border-top: 1px solid var(--line); }
+.g-off > .tree-h .tree-t b, .c-off > .tree-h .tree-t b { opacity: .55; }
+.g-off > .tree-h .av { opacity: .5; }
+.tree-empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px; color: var(--muted); font-size: 14px; }
+.tree-empty .btn { margin-left: auto; }
+@media (max-width: 560px) {
+  .hide-xs { display: none; }
+  .tree-h { padding: 8px; gap: 6px; }
+  .tree-cats { padding: 0 8px; }
+  .tree-g.open > .tree-body > .tree-cats { padding-block: 8px; }
+  .tree-empty .btn { margin-left: 0; }
+}

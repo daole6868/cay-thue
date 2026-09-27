@@ -335,7 +335,7 @@
       else if (act === 'trash') delGame(id);
       else if (act === 'up' || act === 'down') move('games', id, act === 'up' ? -1 : 1);
       else if (act === 'goto-cats') A.cf.game = id;
-      else if (act === 'goto-prods') Object.assign(A.pf, { game: id, cat: '', q: '', status: 'all' });
+      else if (act === 'goto-prods') { OPEN.pg.add(id); A.pf.q = ''; A.pf.status = 'all'; }
     };
     v.onchange = e => {
       if (!e.target.matches('[data-act="vis"]')) return;
@@ -424,40 +424,57 @@
   /* =========================================================
      DANH MỤC
      ========================================================= */
+  // Trạng thái mở/đóng của cây (giữ nguyên khi vẽ lại)
+  const OPEN = { cg: new Set(), pg: new Set(), pc: new Set() };
+  const chev = open => `<span class="tree-chev${open ? ' on' : ''}">${I('chevDown', 18)}</span>`;
+  function toggleTree(btn, set) {
+    const box = btn.closest('[data-node]'), id = box.dataset.node;
+    const open = !box.classList.contains('open');
+    box.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) set.add(id); else set.delete(id);
+  }
+
   function vCats(v) {
     const d = D();
-    if (A.cf.game && !Store.game(A.cf.game)) A.cf.game = '';
-    const gf = A.cf.game;
-    const list = d.cats.filter(c => !gf || c.gameId === gf);
-    v.innerHTML = `<section class="panel">
-      <div class="panel-h"><div><h2>Danh mục</h2><p class="muted small">${list.length} danh mục${gf ? ' trong ' + U.esc(Store.game(gf).name) : ' của tất cả game'}. Thứ tự sắp xếp áp dụng trong từng game.</p></div>
-        <div class="toolbar ml-auto">
-          <select class="select sel-auto" id="cfGame" aria-label="Lọc theo game"><option value="">Tất cả game</option>${d.games.map(g => `<option value="${g.id}" ${g.id === gf ? 'selected' : ''}>${U.esc(g.name)}</option>`).join('')}</select>
-          <button class="btn btn-primary" type="button" data-act="add">${I('plus', 16)}Thêm danh mục</button>
-        </div></div>
-      ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="w-drag"></th><th>Danh mục</th><th>Game</th><th class="num">Số gói</th><th class="num">Giá từ</th><th>Hiển thị</th><th class="num">Thao tác</th></tr></thead>
-      <tbody>${list.map(c => {
-        const g = Store.game(c.gameId), ps = d.prods.filter(p => p.catId === c.id);
-        const sib = d.cats.filter(x => x.gameId === c.gameId), k = sib.indexOf(c);
-        return `<tr data-id="${c.id}" class="${c.visible ? '' : 'is-hidden'}">
-          <td class="w-drag">${dragCell(k === 0, k === sib.length - 1)}</td>
-          <td><b>${U.esc(c.name)}</b></td>
-          <td>${g ? `<span class="cell-main sm">${avatar(g, 'xs')}<span>${U.esc(g.name)}</span></span>` : '—'}</td>
-          <td class="num"><a class="lnk" href="#prods" data-act="goto">${ps.length} gói</a></td>
-          <td class="num">${ps.length ? U.fmt(Math.min(...ps.map(p => p.price))) : '—'}</td>
-          <td>${sw(c.visible, 'data-act="vis" aria-label="Hiển thị ' + U.esc(c.name) + '"')}</td>
-          <td class="num"><div class="row-actions">${rowBtn('edit', 'edit', 'Sửa')}${rowBtn('trash', 'trash', 'Xóa', 'danger')}</div></td></tr>`;
-      }).join('')}</tbody></table></div>` : emptyState('folder', 'Chưa có danh mục', gf ? 'Game này chưa có danh mục nào.' : 'Thêm danh mục cho game của bạn.', 'add', 'Thêm danh mục')}
-    </section>`;
-    $('#cfGame', v).addEventListener('change', e => { A.cf.game = e.target.value; render(false); });
+    if (A.cf.game) { OPEN.cg.add(A.cf.game); A.cf.game = ''; }
+    v.innerHTML = `<div class="tree-top"><div><h2>Danh mục theo game</h2><p class="muted small">Bấm vào một game để xem và thêm danh mục của game đó. Kéo ${I('grip', 13, 'inline')} hoặc bấm mũi tên để đổi thứ tự.</p></div>
+        <div class="toolbar"><button class="btn btn-ghost btn-sm" type="button" data-act="open-all">Mở tất cả</button><button class="btn btn-ghost btn-sm" type="button" data-act="close-all">Thu gọn</button></div></div>
+      ${d.games.length ? `<div class="tree">${d.games.map(g => {
+        const cats = d.cats.filter(c => c.gameId === g.id), open = OPEN.cg.has(g.id);
+        return `<section class="tree-g panel${open ? ' open' : ''}${g.visible ? '' : ' g-off'}" data-node="${g.id}">
+          <div class="tree-h">
+            <button class="tree-tg" type="button" data-toggle="g" aria-expanded="${open}">${avatar(g)}<span class="tree-t"><b>${U.esc(g.name)}</b><small>${cats.length} danh mục${g.visible ? '' : ' · game đang ẩn'}</small></span>${chev(open)}</button>
+            <button class="btn btn-soft btn-sm" type="button" data-act="add-cat" data-g="${g.id}">${I('plus', 14)}<span class="hide-xs">Thêm danh mục</span></button>
+          </div>
+          <div class="tree-body"><div>
+            ${cats.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="w-drag"></th><th>Danh mục</th><th class="num">Số gói</th><th class="num">Giá từ</th><th>Hiển thị</th><th class="num">Thao tác</th></tr></thead>
+            <tbody>${cats.map((c, k) => {
+              const ps = d.prods.filter(p => p.catId === c.id);
+              return `<tr data-id="${c.id}" class="${c.visible ? '' : 'is-hidden'}">
+                <td class="w-drag">${dragCell(k === 0, k === cats.length - 1)}</td>
+                <td><b>${U.esc(c.name)}</b></td>
+                <td class="num"><a class="lnk" href="#prods" data-act="goto">${ps.length} gói</a></td>
+                <td class="num">${ps.length ? U.fmt(Math.min(...ps.map(p => p.price))) : '—'}</td>
+                <td>${sw(c.visible, 'data-act="vis" aria-label="Hiển thị ' + U.esc(c.name) + '"')}</td>
+                <td class="num"><div class="row-actions">${rowBtn('edit', 'edit', 'Sửa')}${rowBtn('trash', 'trash', 'Xóa', 'danger')}</div></td></tr>`;
+            }).join('')}</tbody></table></div>`
+            : `<div class="tree-empty">${I('folder', 22)}<span>Game này chưa có danh mục.</span><button class="btn btn-primary btn-sm" type="button" data-act="add-cat" data-g="${g.id}">${I('plus', 14)}Thêm danh mục đầu tiên</button></div>`}
+          </div></div></section>`;
+      }).join('')}</div>` : `<section class="panel">${emptyState('gamepad', 'Chưa có game nào', 'Hãy thêm game trước, sau đó thêm danh mục cho từng game.', 'goto-games', 'Thêm game')}</section>`}`;
     v.onclick = e => {
+      const t = e.target.closest('[data-toggle]');
+      if (t) { toggleTree(t, OPEN.cg); return; }
       const b = e.target.closest('[data-act]'); if (!b) return;
       const id = idOf(b), act = b.dataset.act;
-      if (act === 'add') catForm(null, A.cf.game);
+      if (act === 'add-cat') catForm(null, b.dataset.g);
+      else if (act === 'open-all') { d.games.forEach(g => OPEN.cg.add(g.id)); render(false); }
+      else if (act === 'close-all') { OPEN.cg.clear(); render(false); }
+      else if (act === 'goto-games') { location.hash = 'games'; setTimeout(() => gameForm(), 300); }
       else if (act === 'edit') catForm(id);
       else if (act === 'trash') delCat(id);
       else if (act === 'up' || act === 'down') move('cats', id, act === 'up' ? -1 : 1, 'gameId');
-      else if (act === 'goto') { const c = Store.cat(id); Object.assign(A.pf, { game: c.gameId, cat: id, q: '', status: 'all' }); }
+      else if (act === 'goto') { const c = Store.cat(id); OPEN.pg.add(c.gameId); OPEN.pc.add(c.id); }
     };
     v.onchange = e => {
       if (!e.target.matches('[data-act="vis"]')) return;
@@ -465,7 +482,7 @@
       c.visible = e.target.checked;
       commit(c.visible ? `Đã hiện “${c.name}”` : `Đã ẩn “${c.name}”`);
     };
-    sortable($('tbody', v), 'cats', 'gameId');
+    $$('tbody', v).forEach(tb => sortable(tb, 'cats', 'gameId'));
   }
 
   function catForm(id, presetGame) {
@@ -499,6 +516,7 @@
         insertInGroup(d.cats, { id: nid, gameId: gid, name, visible: q('#cVis').checked }, 'gameId');
       }
       Store.save(); updateCounts();
+      OPEN.cg.add(gid); OPEN.pg.add(gid);
       if (more) {
         UI.toast(`Đã thêm “${name}”. Nhập danh mục tiếp theo.`);
         q('#cName').value = ''; q('#cName').focus();
@@ -530,67 +548,49 @@
   /* =========================================================
      SẢN PHẨM
      ========================================================= */
-  function filteredProds() {
-    const d = D(), f = A.pf, fq = U.fold(f.q).trim();
-    let list = d.prods.filter(p => {
-      const c = Store.cat(p.catId); if (!c) return false;
-      if (f.game && c.gameId !== f.game) return false;
-      if (f.cat && p.catId !== f.cat) return false;
-      if (fq && !U.fold(p.name + ' ' + c.name).includes(fq)) return false;
-      switch (f.status) {
-        case 'on': return p.visible;
-        case 'off': return !p.visible;
-        case 'sale': return U.off(p) > 0;
-        case 'hot': return p.badge === 'hot';
-        case 'new': return p.badge === 'new';
-        default: return true;
-      }
-    });
-    if (f.sort) {
-      const views = Store.views.all();
-      const key = { name: p => U.fold(p.name), price: p => p.price, views: p => views[p.id] || 0 }[f.sort];
-      list = [...list].sort((a, b) => { const x = key(a), y = key(b); return (x > y ? 1 : x < y ? -1 : 0) * f.dir; });
+  // Sản phẩm khớp ô tìm kiếm + trạng thái
+  function prodMatch(p, c) {
+    const f = A.pf, fq = U.fold(f.q).trim();
+    if (fq && !U.fold(p.name + ' ' + c.name).includes(fq)) return false;
+    switch (f.status) {
+      case 'on': return p.visible;
+      case 'off': return !p.visible;
+      case 'sale': return U.off(p) > 0;
+      case 'hot': return p.badge === 'hot';
+      case 'new': return p.badge === 'new';
+      default: return true;
     }
-    return list;
   }
+  const filtering = () => !!(U.fold(A.pf.q).trim() || A.pf.status !== 'all');
 
   function vProds(v) {
-    const d = D(), f = A.pf;
-    if (f.cat && !Store.cat(f.cat)) f.cat = '';
-    if (f.game && !Store.game(f.game)) f.game = '';
-    if (f.cat) f.game = Store.cat(f.cat).gameId;
-    v.innerHTML = `<section class="panel">
-      <div class="panel-h"><div><h2>Sản phẩm</h2><p class="muted small" id="pCount"></p></div>
-        <button class="btn btn-primary ml-auto" type="button" data-act="add">${I('plus', 16)}Thêm sản phẩm</button></div>
-      <div class="filters">
+    const f = A.pf;
+    v.innerHTML = `<div class="tree-top"><div><h2>Sản phẩm theo game › danh mục</h2><p class="muted small" id="pCount"></p></div>
+        <div class="toolbar"><button class="btn btn-ghost btn-sm" type="button" data-act="open-all">Mở tất cả</button><button class="btn btn-ghost btn-sm" type="button" data-act="close-all">Thu gọn</button></div></div>
+      <div class="filters panel">
         <label class="search-in">${I('search', 16)}<input class="input" id="pQ" placeholder="Tìm theo tên gói hoặc danh mục…" value="${U.esc(f.q)}" aria-label="Tìm sản phẩm"></label>
-        <select class="select" id="pGame" aria-label="Lọc theo game"><option value="">Tất cả game</option>${d.games.map(g => `<option value="${g.id}" ${g.id === f.game ? 'selected' : ''}>${U.esc(g.name)}</option>`).join('')}</select>
-        <select class="select" id="pCat" aria-label="Lọc theo danh mục" ${f.game ? '' : 'disabled'}><option value="">${f.game ? 'Tất cả danh mục' : 'Chọn game trước'}</option>${d.cats.filter(c => c.gameId === f.game).map(c => `<option value="${c.id}" ${c.id === f.cat ? 'selected' : ''}>${U.esc(c.name)}</option>`).join('')}</select>
         <select class="select" id="pStatus" aria-label="Lọc theo trạng thái">${[['all', 'Mọi trạng thái'], ['on', 'Đang hiện'], ['off', 'Đang ẩn'], ['sale', 'Đang giảm giá'], ['hot', 'Nhãn Hot'], ['new', 'Nhãn Mới']].map(([k, l]) => `<option value="${k}" ${k === f.status ? 'selected' : ''}>${l}</option>`).join('')}</select>
-        ${(f.q || f.game || f.status !== 'all' || f.sort) ? `<button class="btn btn-ghost btn-sm" type="button" data-act="clear-f">${I('x', 14)}Bỏ lọc</button>` : ''}
+        <button class="btn btn-ghost btn-sm" type="button" data-act="clear-f" id="pClear" ${filtering() ? '' : 'hidden'}>${I('x', 14)}Bỏ lọc</button>
       </div>
-      <div id="pTable"></div>
-    </section>`;
-    renderProdTable();
-    $('#pQ', v).addEventListener('input', U.debounce(e => { f.q = e.target.value; renderProdTable(); }, 120));
-    $('#pGame', v).addEventListener('change', e => { f.game = e.target.value; f.cat = ''; render(false); });
-    $('#pCat', v).addEventListener('change', e => { f.cat = e.target.value; render(false); });
-    $('#pStatus', v).addEventListener('change', e => { f.status = e.target.value; render(false); });
+      <div id="pTree"></div>`;
+    renderProdTree();
+    $('#pQ', v).addEventListener('input', U.debounce(e => { f.q = e.target.value; renderProdTree(); }, 150));
+    $('#pStatus', v).addEventListener('change', e => { f.status = e.target.value; renderProdTree(); });
     v.onclick = e => {
-      const b = e.target.closest('[data-act], [data-sortby]'); if (!b) return;
-      if (b.dataset.sortby) {
-        const k = b.dataset.sortby;
-        if (f.sort === k) { if (f.dir === 1) f.dir = -1; else { f.sort = ''; f.dir = 1; } } else { f.sort = k; f.dir = 1; }
-        render(false); return;
-      }
-      const id = idOf(b), act = b.dataset.act;
-      if (act === 'add') prodForm(null);
+      const t = e.target.closest('[data-toggle]');
+      if (t) { toggleTree(t, t.dataset.toggle === 'g' ? OPEN.pg : OPEN.pc); return; }
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const id = idOf(b), act = b.dataset.act, d = D();
+      if (act === 'add-prod') prodForm(null, { cat: b.dataset.c });
+      else if (act === 'add-cat') catForm(null, b.dataset.g);
+      else if (act === 'open-all') { d.games.forEach(g => OPEN.pg.add(g.id)); d.cats.forEach(c => OPEN.pc.add(c.id)); renderProdTree(); }
+      else if (act === 'close-all') { OPEN.pg.clear(); OPEN.pc.clear(); renderProdTree(); }
+      else if (act === 'clear-f') { f.q = ''; f.status = 'all'; render(false); }
       else if (act === 'edit') prodForm(id);
       else if (act === 'dup') dupProd(id);
       else if (act === 'trash') delProds([id]);
       else if (act === 'qprice') quickPrice(b);
       else if (act === 'up' || act === 'down') move('prods', id, act === 'up' ? -1 : 1, 'catId');
-      else if (act === 'clear-f') { Object.assign(f, { q: '', game: '', cat: '', status: 'all', sort: '', dir: 1 }); render(false); }
     };
     v.onchange = e => {
       const t = e.target;
@@ -603,49 +603,83 @@
         const id = idOf(t);
         if (t.checked) A.sel.add(id); else A.sel.delete(id);
         t.closest('tr').classList.toggle('sel', t.checked);
-        syncAllCheck(); updateBulk();
+        syncAllCheck(t.closest('table')); updateBulk();
       } else if (t.matches('[data-act="all"]')) {
-        filteredProds().forEach(p => { if (t.checked) A.sel.add(p.id); else A.sel.delete(p.id); });
-        renderProdTable();
+        $$('tbody [data-act="sel"]', t.closest('table')).forEach(cb => {
+          const id = idOf(cb);
+          cb.checked = t.checked; cb.closest('tr').classList.toggle('sel', t.checked);
+          if (t.checked) A.sel.add(id); else A.sel.delete(id);
+        });
+        updateBulk();
       }
     };
   }
 
-  function syncAllCheck() {
-    const all = $('#pTable [data-act="all"]'); if (!all) return;
-    const list = filteredProds();
-    const n = list.filter(p => A.sel.has(p.id)).length;
-    all.checked = list.length > 0 && n === list.length;
-    all.indeterminate = n > 0 && n < list.length;
+  function syncAllCheck(table) {
+    const all = table && $('[data-act="all"]', table); if (!all) return;
+    const boxes = $$('tbody [data-act="sel"]', table);
+    const n = boxes.filter(b => b.checked).length;
+    all.checked = boxes.length > 0 && n === boxes.length;
+    all.indeterminate = n > 0 && n < boxes.length;
   }
 
-  function renderProdTable() {
-    const box = $('#pTable'); if (!box) return;
-    const d = D(), f = A.pf, list = filteredProds(), views = Store.views.all();
-    const canOrder = !f.sort;
-    $('#pCount').textContent = `Đang xem ${list.length} / ${d.prods.length} sản phẩm${canOrder ? '. Kéo để đổi thứ tự trong danh mục.' : '.'}`;
-    const th = (k, l, cls = '') => `<th class="${cls}"><button type="button" class="th-sort${f.sort === k ? ' on' : ''}" data-sortby="${k}">${l}${f.sort === k ? I(f.dir > 0 ? 'chevUp' : 'chevDown', 14) : I('sort', 13)}</button></th>`;
-    box.innerHTML = list.length ? `<div class="tbl-wrap"><table class="tbl tbl-prods"><thead><tr>
-        <th class="w-check"><label class="check"><input type="checkbox" data-act="all" aria-label="Chọn tất cả"><span></span></label></th>
-        ${canOrder ? '<th class="w-drag"></th>' : ''}${th('name', 'Sản phẩm')}${th('price', 'Giá bán', 'num')}<th class="num">Giá gốc</th><th>Thời gian</th>${th('views', 'Lượt xem', 'num')}<th>Hiển thị</th><th class="num">Thao tác</th></tr></thead>
+  function prodTable(list) {
+    const d = D(), views = Store.views.all(), order = !filtering();
+    return `<div class="tbl-wrap"><table class="tbl tbl-prods"><thead><tr>
+        <th class="w-check"><label class="check"><input type="checkbox" data-act="all" aria-label="Chọn tất cả trong danh mục"><span></span></label></th>
+        ${order ? '<th class="w-drag"></th>' : ''}<th>Sản phẩm</th><th class="num">Giá bán</th><th class="num">Giá gốc</th><th>Thời gian</th><th class="num">Lượt xem</th><th>Hiển thị</th><th class="num">Thao tác</th></tr></thead>
       <tbody>${list.map(p => {
-        const c = Store.cat(p.catId), g = Store.game(c.gameId);
         const sib = d.prods.filter(x => x.catId === p.catId), k = sib.indexOf(p);
         return `<tr data-id="${p.id}" class="${p.visible ? '' : 'is-hidden'}${A.sel.has(p.id) ? ' sel' : ''}">
           <td class="w-check"><label class="check"><input type="checkbox" data-act="sel" ${A.sel.has(p.id) ? 'checked' : ''} aria-label="Chọn ${U.esc(p.name)}"><span></span></label></td>
-          ${canOrder ? `<td class="w-drag">${dragCell(k === 0, k === sib.length - 1)}</td>` : ''}
-          <td><div class="cell-main">${g ? avatar(g, 'xs') : ''}<div><b>${U.esc(p.name)} ${badgeHtml(p)}</b><small>${g ? U.esc(g.name) : ''} › ${U.esc(c.name)}</small></div></div></td>
+          ${order ? `<td class="w-drag">${dragCell(k === 0, k === sib.length - 1)}</td>` : ''}
+          <td><div class="cell-main"><div><b>${U.esc(p.name)} ${badgeHtml(p)}</b></div></div></td>
           <td class="num"><button class="qprice" type="button" data-act="qprice" title="Bấm để sửa nhanh giá">${U.fmt(p.price)}${I('edit', 12)}</button></td>
           <td class="num muted">${p.oldPrice ? `<s>${U.fmt(p.oldPrice)}</s>` : '—'}</td>
           <td class="nowrap">${U.esc(p.time || '—')}</td>
           <td class="num">${views[p.id] || 0}</td>
           <td>${sw(p.visible, 'data-act="vis" aria-label="Hiển thị ' + U.esc(p.name) + '"')}</td>
           <td class="num"><div class="row-actions">${rowBtn('edit', 'edit', 'Sửa')}${rowBtn('dup', 'copy', 'Nhân bản')}${rowBtn('trash', 'trash', 'Xóa', 'danger')}</div></td></tr>`;
-      }).join('')}</tbody></table></div>`
-      : emptyState('box', 'Không có sản phẩm phù hợp', (f.q || f.status !== 'all' || f.game) ? 'Thử bỏ bớt bộ lọc hoặc đổi từ khóa tìm kiếm.' : 'Thêm sản phẩm đầu tiên cho bảng giá.', 'add', 'Thêm sản phẩm');
+      }).join('')}</tbody></table></div>`;
+  }
+
+  function renderProdTree() {
+    const box = $('#pTree'); if (!box) return;
+    const d = D(), fil = filtering();
+    $('#pClear') && ($('#pClear').hidden = !fil);
+    let shown = 0;
+    const html = d.games.map(g => {
+      const cats = d.cats.filter(c => c.gameId === g.id);
+      const blocks = cats.map(c => {
+        const all = d.prods.filter(p => p.catId === c.id);
+        const list = all.filter(p => prodMatch(p, c));
+        if (fil && !list.length) return '';
+        shown += list.length;
+        const open = fil || OPEN.pc.has(c.id);
+        return `<div class="tree-c${open ? ' open' : ''}${c.visible ? '' : ' c-off'}" data-node="${c.id}">
+          <div class="tree-h">
+            <button class="tree-tg" type="button" data-toggle="c" aria-expanded="${open}"><span class="rc-ic">${I('folder', 16)}</span><span class="tree-t"><b>${U.esc(c.name)}</b><small>${fil ? `${list.length}/${all.length}` : all.length} gói${all.length ? ' · từ ' + U.fmt(Math.min(...all.map(p => p.price))) : ''}${c.visible ? '' : ' · danh mục đang ẩn'}</small></span>${chev(open)}</button>
+            <button class="btn btn-soft btn-sm" type="button" data-act="add-prod" data-c="${c.id}">${I('plus', 14)}<span class="hide-xs">Thêm sản phẩm</span></button>
+          </div>
+          <div class="tree-body"><div>${list.length ? prodTable(list)
+            : `<div class="tree-empty">${I('box', 22)}<span>Danh mục này chưa có sản phẩm.</span><button class="btn btn-primary btn-sm" type="button" data-act="add-prod" data-c="${c.id}">${I('plus', 14)}Thêm sản phẩm đầu tiên</button></div>`}</div></div>
+        </div>`;
+      }).join('');
+      if (fil && !blocks) return '';
+      const n = d.prods.filter(p => cats.some(c => c.id === p.catId)).length;
+      const open = fil || OPEN.pg.has(g.id);
+      return `<section class="tree-g panel${open ? ' open' : ''}${g.visible ? '' : ' g-off'}" data-node="${g.id}">
+        <div class="tree-h">
+          <button class="tree-tg" type="button" data-toggle="g" aria-expanded="${open}">${avatar(g)}<span class="tree-t"><b>${U.esc(g.name)}</b><small>${cats.length} danh mục · ${n} sản phẩm${g.visible ? '' : ' · game đang ẩn'}</small></span>${chev(open)}</button>
+        </div>
+        <div class="tree-body"><div class="tree-cats">${blocks || `<div class="tree-empty">${I('folder', 22)}<span>Game này chưa có danh mục, hãy tạo danh mục trước.</span><button class="btn btn-primary btn-sm" type="button" data-act="add-cat" data-g="${g.id}">${I('plus', 14)}Thêm danh mục</button></div>`}</div></div>
+      </section>`;
+    }).join('');
+    box.innerHTML = html ? `<div class="tree">${html}</div>`
+      : `<section class="panel">${d.games.length ? emptyState('search', 'Không có sản phẩm phù hợp', 'Thử đổi từ khóa hoặc bỏ lọc trạng thái.') : emptyState('gamepad', 'Chưa có game nào', 'Hãy thêm game và danh mục trước.')}</section>`;
+    $('#pCount').textContent = fil ? `Tìm thấy ${shown} / ${d.prods.length} sản phẩm.` : `${d.prods.length} sản phẩm trong ${d.cats.length} danh mục. Bấm game rồi bấm danh mục để xem và thêm sản phẩm.`;
     UI.hydrate(box);
-    syncAllCheck();
-    if (canOrder) sortable($('tbody', box), 'prods', 'catId');
+    $$('table', box).forEach(tb => { syncAllCheck(tb); if (!fil) sortable($('tbody', tb), 'prods', 'catId'); });
     updateBulk();
   }
 
@@ -661,7 +695,7 @@
         const v = U.parseNum(inp.value);
         if (v > 0 && v !== p.price) { p.price = v; Store.save(); UI.toast(`Đã đổi giá “${p.name}” thành ${U.fmt(v)}`); }
       }
-      renderProdTable(); flashRow(p.id);
+      renderProdTree(); flashRow(p.id);
     };
     inp.addEventListener('input', () => U.moneyMask(inp));
     inp.addEventListener('keydown', e => {
@@ -769,6 +803,7 @@
         nid = U.uid('p');
         insertInGroup(d.prods, { id: nid, ...data }, 'catId');
       }
+      OPEN.pc.add(catId); OPEN.pg.add(Store.cat(catId).gameId);
       Store.save(); updateCounts();
       if (more) {
         UI.toast(`Đã thêm “${name}”. Nhập gói tiếp theo.`);
@@ -797,7 +832,7 @@
       const b = e.target.closest('[data-bulk]'); if (!b) return;
       const ids = [...A.sel].filter(id => Store.prod(id));
       const act = b.dataset.bulk;
-      if (act === 'clear') { A.sel.clear(); renderProdTable(); return; }
+      if (act === 'clear') { A.sel.clear(); renderProdTree(); return; }
       if (!ids.length) return;
       if (act === 'show' || act === 'hide') {
         ids.forEach(id => { Store.prod(id).visible = act === 'show'; });
