@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bảng giá cày thuê</title>
+  <meta name="description" content="Tra giá cày thuê theo từng game: chọn game, chọn danh mục, chọn gói để xem giá và thời gian hoàn thành.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <script>
+    (function () {
+      var r = document.documentElement; r.classList.add('js');
+      try { var t = JSON.parse(localStorage.getItem('ct_theme')); if (t) r.setAttribute('data-theme', t); } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- Thanh thông báo -->
+  <div class="announce" id="announce" hidden>
+    <div class="container">
+      <i data-icon="megaphone" data-size="16"></i>
+      <span class="announce-txt" id="announceText"></span>
+      <button class="announce-x" id="announceClose" aria-label="Đóng thông báo"><i data-icon="x" data-size="16"></i></button>
+    </div>
+  </div>
+
+  <!-- Thanh xem trước khi bảo trì (chỉ admin thấy) -->
+  <div class="admin-bar" id="adminBar" hidden>
+    <i data-icon="wrench" data-size="16"></i>
+    <span>Chế độ bảo trì đang bật. Khách chỉ thấy thông báo bảo trì, bạn đang xem vì đã đăng nhập quản trị.</span>
+    <a href="admin.html#settings">Tắt bảo trì</a>
+  </div>
+
+  <!-- Đầu trang -->
+  <header class="header" id="header">
+    <div class="container">
+      <a class="logo" href="#top" aria-label="Về đầu trang">
+        <span class="logo-mark"><i data-icon="gamepad" data-size="20"></i></span>
+        <span data-bind="siteName">Cày Thuê</span>
+      </a>
+      <nav class="nav" aria-label="Điều hướng chính">
+        <a href="#bang-gia">Bảng giá</a>
+        <a href="#quy-trinh">Quy trình</a>
+        <a href="#cam-ket">Cam kết</a>
+        <a href="#danh-gia">Đánh giá</a>
+        <a href="#hoi-dap">Hỏi đáp</a>
+      </nav>
+      <div class="head-actions">
+        <button class="search-trigger" id="searchBtn" aria-label="Tìm gói">
+          <i data-icon="search" data-size="17"></i><span>Tìm gói cày…</span><kbd id="kbdHint">Ctrl K</kbd>
+        </button>
+        <button class="btn btn-icon btn-ghost" id="themeBtn"></button>
+        <a class="btn btn-primary head-cta" data-href="zalo" target="_blank" rel="noopener"><i data-icon="chat" data-size="16"></i>Nhắn Zalo</a>
+        <button class="btn btn-icon btn-ghost menu-btn" id="menuBtn" aria-label="Mở menu" aria-expanded="false"><i data-icon="menu"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO -->
+    <section class="hero" id="top">
+      <div class="hero-bg" aria-hidden="true">
+        <span class="blob b1"></span><span class="blob b2"></span><span class="grid-bg"></span>
+      </div>
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow anim" style="--d:.05s"><span class="dot-live"></span><span id="updated">Bảng giá cập nhật hôm nay</span></span>
+          <h1 class="anim" id="heroTitle" style="--d:.12s">Xem giá cày thuê chỉ trong 3 bước</h1>
+          <p class="lead anim" style="--d:.2s" data-bind="heroText"></p>
+          <div class="cta anim" style="--d:.28s">
+            <a class="btn btn-primary btn-lg" href="#bang-gia">Xem bảng giá <i data-icon="arrowDown" data-size="18"></i></a>
+            <a class="btn btn-ghost btn-lg" data-href="zalo" target="_blank" rel="noopener"><i data-icon="chat" data-size="18"></i>Tư vấn qua Zalo</a>
+          </div>
+          <dl class="stats anim" id="stats" style="--d:.36s">
+            <div class="stat"><dt>Đơn đã hoàn thành</dt><dd id="statOrders">0</dd></div>
+            <div class="stat"><dt>Booster đang làm việc</dt><dd id="statBoosters">0</dd></div>
+            <div class="stat"><dt>Điểm đánh giá</dt><dd id="statRating">0</dd></div>
+          </dl>
+        </div>
+
+        <aside class="feature anim" id="feature" style="--d:.3s" aria-label="Gói nổi bật">
+          <div class="fcard">
+            <div class="fhead">
+              <span class="flabel"><i data-icon="zap" data-size="15"></i>Gói nổi bật</span>
+              <div class="fdots" id="featDots"></div>
+            </div>
+            <div class="fbody" id="featBody"></div>
+            <div class="ffoot">
+              <button class="btn btn-soft" id="featOpen">Xem chi tiết gói <i data-icon="arrowRight" data-size="16"></i></button>
+            </div>
+            <div class="fprog"><i id="featProg"></i></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- BẢNG GIÁ -->
+    <section class="section" id="bang-gia">
+      <div class="container">
+        <div class="sec-head reveal">
+          <span class="kicker">Bảng giá</span>
+          <h2>Tra giá theo từng game</h2>
+          <p>Chọn lần lượt game, danh mục và gói. Giá hiện ngay bên cạnh từng gói.</p>
+        </div>
+
+        <ol class="stepper reveal" id="stepper" aria-label="Tiến trình chọn">
+          <li class="stp cur"><span class="n">1</span><span class="t">Game</span></li>
+          <li class="stp-bar" aria-hidden="true"><i></i></li>
+          <li class="stp"><span class="n">2</span><span class="t">Danh mục</span></li>
+          <li class="stp-bar" aria-hidden="true"><i></i></li>
+          <li class="stp"><span class="n">3</span><span class="t">Sản phẩm</span></li>
+          <li class="stp-bar" aria-hidden="true"><i></i></li>
+          <li class="stp"><span class="n">4</span><span class="t">Chi tiết</span></li>
+        </ol>
+
+        <div class="pricing reveal">
+          <div class="sel">
+            <!-- 1. Game -->
+            <div class="card step-card cur" id="cardGame">
+              <div class="sc-head">
+                <span class="sc-n">1</span>
+                <span class="sc-title" id="ddLabel">Chọn game</span>
+                <span class="sc-meta" id="gameMeta"></span>
+              </div>
+              <div class="dd" id="dd">
+                <button class="dd-btn" id="ddBtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="ddLabel ddBtn"></button>
+                <div class="dd-panel" id="ddPanel">
+                  <div class="dd-search"><i data-icon="search" data-size="16"></i><input id="ddSearch" placeholder="Tìm game…" autocomplete="off" aria-label="Tìm game"></div>
+                  <ul class="dd-list" id="ddList" role="listbox" aria-labelledby="ddLabel"></ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Danh mục -->
+            <div class="card step-card locked" id="cardCat">
+              <div class="sc-head">
+                <span class="sc-n">2</span>
+                <span class="sc-title">Danh mục</span>
+                <span class="sc-meta" id="catMeta"></span>
+              </div>
+              <div class="collapse open" id="catLock"><div>
+                <div class="locked-msg"><i data-icon="lock" data-size="18"></i><span>Vui lòng chọn game trước</span></div>
+              </div></div>
+              <div class="collapse" id="catWrap"><div>
+                <div class="scroller"><ul class="opts cat-opts" id="catList"></ul></div>
+                <button class="more-hint" id="catHint" type="button"><i data-icon="arrowDown" data-size="14"></i><span></span></button>
+              </div></div>
+            </div>
+
+            <!-- 3. Sản phẩm -->
+            <div class="card step-card locked" id="cardProd">
+              <div class="sc-head">
+                <span class="sc-n">3</span>
+                <span class="sc-title">Sản phẩm</span>
+                <span class="sc-meta" id="prodMeta"></span>
+              </div>
+              <div class="collapse open" id="prodLock"><div>
+                <div class="locked-msg"><i data-icon="lock" data-size="18"></i><span id="prodLockText">Vui lòng chọn game trước</span></div>
+              </div></div>
+              <div class="collapse" id="prodWrap"><div>
+                <div class="ptools">
+                  <div class="seg has-pill" id="sortSeg" role="group" aria-label="Sắp xếp">
+                    <span class="pill"></span>
+                    <button type="button" data-sort="def" class="on">Mặc định</button>
+                    <button type="button" data-sort="asc">Giá thấp</button>
+                    <button type="button" data-sort="desc">Giá cao</button>
+                  </div>
+                  <button class="chip" id="saleChip" type="button" aria-pressed="false"><i data-icon="tag" data-size="14"></i>Đang giảm <span class="cnt">0</span></button>
+                </div>
+                <div class="scroller"><ul class="opts prod-opts" id="prodList"></ul></div>
+                <button class="more-hint" id="prodHint" type="button"><i data-icon="arrowDown" data-size="14"></i><span></span></button>
+              </div></div>
+            </div>
+
+            <!-- Đã xem gần đây -->
+            <div class="card recent" id="recent" hidden>
+              <div class="recent-h"><span><i data-icon="history" data-size="16"></i>Bạn đã xem gần đây</span><button class="link-btn" id="recentClear">Xóa</button></div>
+              <div class="recent-list" id="recentList"></div>
+            </div>
+          </div>
+
+          <!-- 4. Chi tiết -->
+          <aside class="card detail" id="detail" aria-live="polite">
+            <div id="detailBody"></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUY TRÌNH -->
+    <section class="section band" id="quy-trinh">
+      <div class="container">
+        <div class="sec-head center reveal">
+          <span class="kicker">Quy trình</span>
+          <h2>Đặt gói trong 4 bước</h2>
+          <p>Từ lúc chọn gói đến khi nhận lại tài khoản, bạn luôn biết tiến độ.</p>
+        </div>
+        <div class="process reveal">
+          <span class="pline" aria-hidden="true"><i></i></span>
+          <div class="pstep" style="--i:0"><span class="pico"><i data-icon="box" data-size="24"></i></span><span class="pno">Bước 1</span><h3>Chọn gói</h3><p>Xem giá ngay trên web, sao chép thông tin gói.</p></div>
+          <div class="pstep" style="--i:1"><span class="pico"><i data-icon="chat" data-size="24"></i></span><span class="pno">Bước 2</span><h3>Nhắn xác nhận</h3><p>Gửi thông tin gói qua Zalo, shop xếp lịch booster.</p></div>
+          <div class="pstep" style="--i:2"><span class="pico"><i data-icon="wallet" data-size="24"></i></span><span class="pno">Bước 3</span><h3>Thanh toán</h3><p>Chuyển khoản hoặc đặt cọc 50% với gói lớn.</p></div>
+          <div class="pstep" style="--i:3"><span class="pico"><i data-icon="trophy" data-size="24"></i></span><span class="pno">Bước 4</span><h3>Nhận kết quả</h3><p>Báo tiến độ mỗi ngày, bàn giao khi hoàn thành.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CAM KẾT -->
+    <section class="section" id="cam-ket">
+      <div class="container">
+        <div class="sec-head reveal">
+          <span class="kicker">Cam kết</span>
+          <h2>Vì sao khách quay lại mỗi mùa</h2>
+        </div>
+        <div class="feats reveal">
+          <div class="card feat" style="--d:0s"><span class="fico"><i data-icon="shield" data-size="22"></i></span><h3>Chơi tay 100%</h3><p>Không dùng tool hay phần mềm thứ ba. Đăng nhập từ Việt Nam.</p></div>
+          <div class="card feat" style="--d:.08s"><span class="fico"><i data-icon="wallet" data-size="22"></i></span><h3>Hoàn tiền theo tiến độ</h3><p>Không đạt mức đã đặt, hoàn lại phần chưa hoàn thành.</p></div>
+          <div class="card feat" style="--d:.16s"><span class="fico"><i data-icon="clock" data-size="22"></i></span><h3>Báo tiến độ mỗi ngày</h3><p>Ảnh chụp rank và lịch sử trận gửi qua Zalo.</p></div>
+          <div class="card feat" style="--d:.24s"><span class="fico"><i data-icon="headset" data-size="22"></i></span><h3>Hỗ trợ tận tình</h3><p>Phản hồi trong khung giờ <span data-bind="hours"></span>.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ĐÁNH GIÁ -->
+    <section class="section band" id="danh-gia">
+      <div class="container">
+        <div class="sec-head center reveal">
+          <span class="kicker">Đánh giá</span>
+          <h2>Khách hàng nói gì</h2>
+          <p id="avgRating"></p>
+        </div>
+      </div>
+      <div class="marquee reveal" aria-label="Đánh giá của khách hàng">
+        <div class="track" id="track"></div>
+      </div>
+    </section>
+
+    <!-- HỎI ĐÁP -->
+    <section class="section" id="hoi-dap">
+      <div class="container">
+        <div class="sec-head center reveal">
+          <span class="kicker">Hỏi đáp</span>
+          <h2>Câu hỏi thường gặp</h2>
+        </div>
+        <div class="faq reveal" id="faqList"></div>
+      </div>
+    </section>
+
+    <!-- KÊU GỌI -->
+    <section class="section cta-sec">
+      <div class="container">
+        <div class="cta-box reveal">
+          <div>
+            <h2>Chưa thấy gói bạn cần?</h2>
+            <p>Nhắn Zalo cho shop, báo giá riêng trong vài phút.</p>
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn-lg cta-light" data-href="zalo" target="_blank" rel="noopener"><i data-icon="chat" data-size="18"></i>Nhắn Zalo</a>
+            <button class="btn btn-lg cta-outline" data-copy="zalo"><i data-icon="copy" data-size="18"></i><span data-bind="zalo"></span></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- CHÂN TRANG -->
+  <footer class="footer" id="lien-he">
+    <div class="container">
+      <div class="foot-grid">
+        <div class="foot">
+          <a class="logo" href="#top"><span class="logo-mark"><i data-icon="gamepad" data-size="20"></i></span><span data-bind="siteName"></span></a>
+          <p class="muted" data-bind="tagline"></p>
+        </div>
+        <div class="foot">
+          <h4>Liên hệ</h4>
+          <ul>
+            <li><i data-icon="phone" data-size="16"></i><span>Zalo: <b data-bind="zalo"></b></span><button class="link-btn" data-copy="zalo" aria-label="Sao chép số Zalo"><i data-icon="copy" data-size="14"></i></button></li>
+            <li><i data-icon="mail" data-size="16"></i><span data-bind="email"></span></li>
+            <li><i data-icon="clock" data-size="16"></i><span data-bind="hours"></span></li>
+          </ul>
+        </div>
+        <div class="foot">
+          <h4>Liên kết</h4>
+          <ul>
+            <li><a href="#bang-gia">Bảng giá</a></li>
+            <li><a href="#hoi-dap">Hỏi đáp</a></li>
+            <li><a data-href="facebook" target="_blank" rel="noopener">Fanpage Facebook</a></li>
+            <li><a href="admin.html">Trang quản trị</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© <span id="year"></span> <span data-bind="siteName"></span>. Giá có thể thay đổi theo mùa giải.</span>
+        <button class="link-btn" id="themeBtn2"><i data-icon="moon" data-size="14"></i>Đổi giao diện sáng / tối</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Menu điện thoại -->
+  <div class="mnav" id="mnav" aria-hidden="true">
+    <div class="scrim"></div>
+    <div class="panel" role="dialog" aria-label="Menu">
+      <div class="mnav-h"><span class="logo"><span class="logo-mark sm"><i data-icon="gamepad" data-size="18"></i></span><span data-bind="siteName"></span></span><button class="btn btn-icon btn-ghost" id="mnavClose" aria-label="Đóng menu"><i data-icon="x"></i></button></div>
+      <a href="#bang-gia" style="--i:0"><i data-icon="tag"></i>Bảng giá</a>
+      <a href="#quy-trinh" style="--i:1"><i data-icon="box"></i>Quy trình</a>
+      <a href="#cam-ket" style="--i:2"><i data-icon="shield"></i>Cam kết</a>
+      <a href="#danh-gia" style="--i:3"><i data-icon="star"></i>Đánh giá</a>
+      <a href="#hoi-dap" style="--i:4"><i data-icon="help"></i>Hỏi đáp</a>
+      <a class="btn btn-primary mnav-cta" data-href="zalo" target="_blank" rel="noopener" style="--i:5"><i data-icon="chat"></i>Nhắn Zalo</a>
+    </div>
+  </div>
+
+  <!-- Nút liên hệ nổi -->
+  <div class="fab" id="fab">
+    <div class="fab-menu">
+      <a class="fab-item" data-href="zalo" target="_blank" rel="noopener" style="--i:2"><i data-icon="chat"></i>Nhắn Zalo</a>
+      <a class="fab-item" data-href="messenger" target="_blank" rel="noopener" style="--i:1"><i data-icon="chat"></i>Messenger</a>
+      <button class="fab-item" data-copy="zalo" style="--i:0"><i data-icon="copy"></i>Sao chép số Zalo</button>
+    </div>
+    <button class="fab-main" id="fabMain" aria-label="Liên hệ" aria-expanded="false"><i data-icon="chat" data-size="24"></i></button>
+  </div>
+  <button class="to-top" id="toTop" aria-label="Lên đầu trang">
+    <svg class="ring" viewBox="0 0 46 46" aria-hidden="true"><circle cx="23" cy="23" r="21" id="toTopRing"/></svg>
+    <i data-icon="arrowUp" data-size="18"></i>
+  </button>
+
+  <!-- Màn hình bảo trì -->
+  <div class="maint" id="maint" hidden>
+    <div class="maint-box">
+      <span class="maint-ic"><i data-icon="wrench" data-size="30"></i></span>
+      <h1>Đang bảo trì</h1>
+      <p id="maintText"></p>
+      <a class="btn btn-primary btn-lg" data-href="zalo" target="_blank" rel="noopener"><i data-icon="chat"></i>Nhắn Zalo: <span data-bind="zalo"></span></a>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/core.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

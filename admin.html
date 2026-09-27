@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Quản trị bảng giá</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/admin.css">
+  <script>
+    (function () {
+      var r = document.documentElement;
+      try { var t = JSON.parse(localStorage.getItem('ct_theme')); if (t) r.setAttribute('data-theme', t); } catch (e) {}
+      try { if (JSON.parse(localStorage.getItem('ct_sb_collapsed'))) r.classList.add('sb-collapsed'); } catch (e) {}
+    })();
+  </script>
+</head>
+<body class="admin">
+
+  <!-- ĐĂNG NHẬP -->
+  <div class="login" id="login" hidden>
+    <div class="login-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span></div>
+    <form class="login-card card" id="loginForm" novalidate>
+      <span class="logo-mark lg"><i data-icon="gamepad" data-size="26"></i></span>
+      <div>
+        <h1>Đăng nhập quản trị</h1>
+        <p class="muted">Quản lý game, danh mục và bảng giá của <b id="loginSite">shop</b>.</p>
+      </div>
+      <div class="field">
+        <label for="pw">Mật khẩu</label>
+        <div class="pw-wrap">
+          <input class="input" id="pw" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu">
+          <button type="button" class="pw-eye" id="pwToggle" aria-label="Hiện mật khẩu"><i data-icon="eye"></i></button>
+        </div>
+        <span class="err" id="pwErr"></span>
+      </div>
+      <button class="btn btn-primary btn-lg" type="submit">Đăng nhập <i data-icon="arrowRight"></i></button>
+      <p class="hint center" id="loginHint">Mật khẩu mặc định là <b>admin123</b>. Hãy đổi ngay trong mục Cài đặt.</p>
+      <a class="back-link" href="index.html"><i data-icon="chevLeft" data-size="16"></i>Về trang bảng giá</a>
+    </form>
+  </div>
+
+  <!-- ỨNG DỤNG -->
+  <div class="app" id="app" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-brand">
+        <span class="logo-mark sm"><i data-icon="gamepad" data-size="18"></i></span>
+        <span class="sb-name"><b id="sbBrand">Cày Thuê</b><small>Trang quản trị</small></span>
+      </div>
+      <nav class="sb-nav" id="sbNav" aria-label="Mục quản trị"></nav>
+      <div class="sb-foot">
+        <a class="sb-link" href="index.html" target="_blank" rel="noopener" title="Xem trang khách"><i data-icon="external" data-size="19"></i><span>Xem trang khách</span></a>
+        <button class="sb-link" id="logoutBtn" type="button" title="Đăng xuất"><i data-icon="logout" data-size="19"></i><span>Đăng xuất</span></button>
+      </div>
+    </aside>
+    <div class="sb-scrim" id="sbScrim"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="btn btn-icon btn-ghost menu-btn" id="menuBtn" aria-label="Mở menu"><i data-icon="menu"></i></button>
+        <button class="btn btn-icon btn-ghost collapse-btn" id="collapseBtn" aria-label="Thu gọn menu" title="Thu gọn menu"><i data-icon="sidebar"></i></button>
+        <div class="tb-title"><span class="tb-crumb">Quản trị</span><h1 id="pageTitle">Tổng quan</h1></div>
+        <span class="spacer"></span>
+        <a class="btn btn-ghost btn-sm hide-sm" href="index.html" target="_blank" rel="noopener">Xem trang khách <i data-icon="external" data-size="14"></i></a>
+        <button class="btn btn-icon btn-ghost" id="themeBtn"></button>
+      </header>
+      <main class="view" id="view"></main>
+    </div>
+  </div>
+
+  <!-- Thanh thao tác hàng loạt -->
+  <div class="bulk" id="bulk" role="toolbar" aria-label="Thao tác với sản phẩm đã chọn">
+    <span class="bulk-n"><b id="bulkN">0</b> đã chọn</span>
+    <button class="btn btn-sm" data-bulk="show"><i data-icon="eye" data-size="15"></i>Hiện</button>
+    <button class="btn btn-sm" data-bulk="hide"><i data-icon="eyeOff" data-size="15"></i>Ẩn</button>
+    <button class="btn btn-sm" data-bulk="price"><i data-icon="percent" data-size="15"></i>Đổi giá</button>
+    <button class="btn btn-sm" data-bulk="move"><i data-icon="folder" data-size="15"></i>Chuyển danh mục</button>
+    <button class="btn btn-sm bulk-del" data-bulk="del"><i data-icon="trash" data-size="15"></i>Xóa</button>
+    <button class="btn btn-sm btn-icon" data-bulk="clear" aria-label="Bỏ chọn"><i data-icon="x" data-size="15"></i></button>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/core.js"></script>
+  <script src="assets/js/admin.js"></script>
+</body>
+</html>
