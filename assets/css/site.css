@@ -686,3 +686,45 @@ a.qc-item:hover { background: var(--surface-2); transform: translateX(-3px); }
 .maint-ic { width: 80px; height: 80px; border-radius: var(--r-lg); display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); animation: floaty 4s ease-in-out infinite; }
 .maint h1 { margin: 6px 0 0; font-size: 30px; letter-spacing: -.02em; }
 .maint p { margin: 0 0 8px; color: var(--ink-2); }
+
+/* ---------- Gói nổi bật dạng dải chạy ngang (điện thoại) ---------- */
+.fstrip { display: none; min-width: 0; }
+.fs-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.fs-hint { font-size: 12px; color: var(--muted); }
+.fs-view {
+  overflow: hidden; margin-inline: -16px; padding: 4px 0 8px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.fs-track { display: flex; gap: 10px; width: max-content; padding-left: 16px; animation: fsRun 40s linear infinite; }
+.fstrip.paused .fs-track, .fs-view:hover .fs-track { animation-play-state: paused; }
+@keyframes fsRun { to { transform: translateX(calc(-50% - 5px)); } }
+.fs-card {
+  width: 272px; flex: none; min-height: 66px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r);
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink); text-align: left; cursor: pointer;
+  transition: border-color .2s, transform .2s var(--ease);
+}
+.fs-card:active { transform: scale(.97); border-color: var(--accent-line); }
+.fs-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fs-t { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.fs-t b { font-size: 13.5px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fs-t small { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-p { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.fs-p b { font-size: 14.5px; font-weight: 800; color: var(--price); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fs-p em { font-style: normal; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: var(--r-pill); background: var(--price); color: #fff; }
+.fs-p em.hot { background: color-mix(in srgb, var(--price) 14%, var(--surface)); color: var(--price); }
+@media (max-width: 640px) {
+  .feature { display: none !important; }
+  .fstrip { display: block; }
+  .fstrip[hidden] { display: none; }
+  .hero-grid { gap: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fs-view { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+  .fs-track { animation: none; }
+  .fs-card[aria-hidden="true"] { display: none; }
+}

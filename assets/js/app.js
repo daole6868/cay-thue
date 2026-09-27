@@ -89,7 +89,25 @@
     if (F.i >= F.list.length) F.i = 0;
     $('#feature').hidden = !F.list.length;
     $('#featDots').innerHTML = F.list.map((_, i) => `<button class="fdot${i === F.i ? ' on' : ''}" data-i="${i}" aria-label="Gói nổi bật ${i + 1}"></button>`).join('');
-    paintFeat(false);
+    paintFeat(false);    renderStrip();
+  }
+  // Điện thoại: dải thẻ nhỏ chạy ngang từ phải sang trái
+  function renderStrip() {
+    const strip = $('#fstrip'), track = $('#fsTrack');
+    strip.hidden = !F.list.length;
+    if (!F.list.length) return;
+    const card = (p, dup) => {
+      const c = Store.cat(p.catId), g = Store.game(c.gameId), off = U.off(p);
+      return `<button class="fs-card" type="button" data-id="${p.id}"${dup ? ' aria-hidden="true" tabindex="-1"' : ''}>
+        ${avatar(g, 'sm')}
+        <span class="fs-t"><b>${U.esc(p.name)}</b><small>${U.esc(c.name)}</small></span>
+        <span class="fs-p"><b>${U.fmt(p.price)}</b>${off ? `<em>-${off}%</em>` : p.badge === 'hot' ? '<em class="hot">Hot</em>' : ''}</span></button>`;
+    };
+    // Nhân bản để băng chạy liền mạch, đủ dài để không bị hở
+    let base = F.list;
+    while (base.length < 6) base = base.concat(F.list);
+    track.innerHTML = base.map(p => card(p)).join('') + base.map(p => card(p, true)).join('');
+    track.style.animationDuration = Math.max(16, base.length * 4) + 's';
   }
   function paintFeat(anim = true) {
     const p = F.list[F.i];
@@ -665,6 +683,11 @@
     $('#featProg').addEventListener('animationend', nextFeat);
     $('#featDots').addEventListener('click', e => { const d = e.target.closest('.fdot'); if (d) { F.i = +d.dataset.i; paintFeat(); } });
     $('#featOpen').addEventListener('click', () => { const id = $('#featBody').dataset.id; if (id) pick(id); });
+    $('#fsTrack').addEventListener('click', e => { const c = e.target.closest('.fs-card'); if (c) pick(c.dataset.id); });
+    // Chạm giữ để dừng băng chạy, thả ra chạy tiếp
+    let fsResume = null;
+    $('#fstrip').addEventListener('touchstart', () => { clearTimeout(fsResume); $('#fstrip').classList.add('paused'); }, { passive: true });
+    $('#fstrip').addEventListener('touchend', () => { fsResume = setTimeout(() => $('#fstrip').classList.remove('paused'), 1500); }, { passive: true });
 
     // Hỏi đáp
     $('#faqList').addEventListener('click', e => {
