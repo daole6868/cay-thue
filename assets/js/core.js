@@ -11,6 +11,7 @@
   const K_THEME = 'ct_theme';
   const K_SESSION = 'ct_admin_session';
   const DEFAULT_PASSWORD = 'admin123';
+  const OLD_NOTES = 'Không đăng nhập tài khoản trong thời gian cày.\nGiá có thể thay đổi theo mùa giải.\nLiên hệ trước khi chuyển khoản để xác nhận lịch.';
 
   /* ---------- localStorage an toàn ---------- */
   const ls = {
@@ -82,6 +83,40 @@
       };
       requestAnimationFrame(step);
     },
+    // Chế độ mô tả / lưu ý của sản phẩm: default | none | custom
+    descMode(p) { return p.descMode || (p.desc && p.desc.trim() ? 'custom' : 'default'); },
+    notesMode(p) { return p.notesMode || (p.notes && p.notes.trim() ? 'custom' : 'default'); },
+    descOf(p, s) {
+      const m = U.descMode(p);
+      return m === 'none' ? '' : m === 'custom' ? (p.desc || '').trim() : (s.defaultDesc || '').trim();
+    },
+    notesOf(p, s) {
+      const m = U.notesMode(p);
+      const txt = m === 'none' ? '' : m === 'custom' ? p.notes || '' : s.defaultNotes || '';
+      return txt.split('\n').map(x => x.trim()).filter(Boolean);
+    },
+    digits(v) { return String(v || '').replace(/\D/g, ''); },
+    // Link của một mục liên hệ: ô Link trống thì lấy từ Cài đặt › Liên hệ
+    channelUrl(item, s) {
+      if (item.url && item.url.trim()) return item.url.trim();
+      const z = U.digits(s.zalo), ph = U.digits(s.phone || s.zalo);
+      switch (item.icon) {
+        case 'zalo': return z ? 'https://zalo.me/' + z : '';
+        case 'messenger': return s.messenger || '';
+        case 'phone': return ph ? 'tel:' + ph : '';
+        case 'email': return s.email ? 'mailto:' + s.email : '';
+        case 'facebook': case 'youtube': case 'tiktok': case 'instagram': case 'telegram': case 'discord': return s[item.icon] || '';
+        default: return '';
+      }
+    },
+    // Dòng phụ: trống thì tự hiện số điện thoại / email
+    channelDesc(item, s) {
+      if (item.desc && item.desc.trim()) return item.desc.trim();
+      if (item.icon === 'phone') return s.phone || s.zalo || '';
+      if (item.icon === 'zalo') return s.zalo || '';
+      if (item.icon === 'email') return s.email || '';
+      return '';
+    },
     moneyMask(inp) {
       const d = U.parseNum(inp.value);
       inp.value = d ? U.num(d) : '';
@@ -93,10 +128,33 @@
     const def = clone(window.DEFAULT_DATA);
     if (!d || typeof d !== 'object') return def;
     const arr = k => (Array.isArray(d[k]) ? d[k] : def[k]);
+    const settings = Object.assign({}, def.settings, d.settings || {});
+    // Lưu ý mặc định bản cũ → bản mới
+    if (settings.defaultNotes === OLD_NOTES) settings.defaultNotes = def.settings.defaultNotes;
+    if (!settings.phone) settings.phone = settings.zalo || '';
+    // Giá trị dự phòng khi data.js là bản xuất từ phiên bản cũ
+    const fb = {
+      footerAbout: '', footerSocial: true, footerAdminLink: true,
+      footerCopyright: '© {year} {site}. Giá có thể thay đổi theo mùa giải.',
+      defaultNotes: 'Không đăng nhập trong thời gian cày.\nGiá có thể thay đổi.\nLiên hệ admin trước khi chuyển khoản để xác nhận.'
+    };
+    Object.keys(fb).forEach(k => { if (settings[k] === undefined) settings[k] = fb[k]; });
+    if (!Array.isArray(settings.footerCols)) settings.footerCols = [
+      { id: 'fc1', type: 'services', title: 'Dịch vụ', visible: true, limit: 5, items: [] },
+      { id: 'fc2', type: 'contact', title: 'Liên hệ', visible: true, items: [] }
+    ];
+    if (!settings.quick || !Array.isArray(settings.quick.items)) settings.quick = {
+      on: true, auto: true, autoSec: 2, side: 'right', title: 'Hỗ trợ nhanh', sub: 'Phản hồi trong 5 phút',
+      items: [
+        { id: 'q1', icon: 'zalo', name: 'Zalo', desc: 'Tư vấn & báo giá nhanh', url: '', visible: true },
+        { id: 'q2', icon: 'messenger', name: 'Messenger', desc: 'Nhắn tin qua Facebook', url: '', visible: true },
+        { id: 'q3', icon: 'phone', name: 'Gọi điện', desc: '', url: '', visible: true }
+      ]
+    };
     return {
       version: 1,
       updatedAt: d.updatedAt || def.updatedAt || Date.now(),
-      settings: Object.assign({}, def.settings, d.settings || {}),
+      settings,
       games: arr('games'), cats: arr('cats'), prods: arr('prods'),
       faqs: arr('faqs'), reviews: arr('reviews')
     };
@@ -212,7 +270,29 @@
     home: '<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
     sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
     percent: '<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
-    history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>'
+    history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+    layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18M9 15v6M15 15v6"/>',
+    columns: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>'
+  };
+
+  /* ---------- Biểu tượng kênh liên hệ (nền màu, hình trắng) ---------- */
+  const W = 'fill="#fff"';
+  const CHANNELS = {
+    zalo: { label: 'Zalo', bg: '#0068ff', text: 'Zalo' },
+    messenger: { label: 'Messenger', bg: 'linear-gradient(135deg,#0099ff,#a033ff 60%,#ff5280)', svg: `<path ${W} d="M12 2.5C6.6 2.5 2.5 6.4 2.5 11.3c0 2.6 1.1 4.8 3 6.4v3.8l3.4-1.9c1 .3 2 .4 3.1.4 5.4 0 9.5-3.9 9.5-8.7S17.4 2.5 12 2.5z"/><path style="fill:#7a4dff" d="m6.8 14 3-4.8 2.4 1.9 3-1.9-3 4.8-2.4-1.9z"/>` },
+    phone: { label: 'Gọi điện', bg: '#22b35e', stroke: ICONS.phone },
+    telegram: { label: 'Telegram', bg: '#2aabee', svg: `<path ${W} d="M21.4 3.7 2.9 10.8c-1 .4-1 1.5 0 1.8l4.6 1.5 1.8 5.6c.2.7 1.1.9 1.6.4l2.6-2.5 4.7 3.5c.6.4 1.4.1 1.6-.6l3-15.2c.2-.9-.6-1.6-1.4-1.3zM9.9 14.6l-.4 3.9-1.4-4.6 9.7-6.2z"/>` },
+    discord: { label: 'Discord', bg: '#5865f2', svg: `<path ${W} d="M19.3 5.3A16 16 0 0 0 15.4 4l-.5 1a15 15 0 0 0-5.8 0L8.6 4a16 16 0 0 0-3.9 1.3C2.2 9 1.6 12.7 1.9 16.3a16 16 0 0 0 4.8 2.4l1-1.6c-.6-.2-1.1-.5-1.6-.8l.4-.3a11.4 11.4 0 0 0 11 0l.4.3c-.5.3-1 .6-1.6.8l1 1.6a16 16 0 0 0 4.8-2.4c.4-4.2-.7-7.8-2.8-11zM8.7 14.1c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2zm6.6 0c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2z"/>` },
+    facebook: { label: 'Facebook', bg: '#1877f2', svg: `<path ${W} d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H7.8v3h2.6V21z"/>` },
+    youtube: { label: 'YouTube', bg: '#ff0033', svg: `<rect ${W} x="2.5" y="5.5" width="19" height="13" rx="4"/><path style="fill:#ff0033" d="m10 9 5 3-5 3z"/>` },
+    tiktok: { label: 'TikTok', bg: '#111418', svg: `<path style="fill:#25f4ee" transform="translate(-.8 -.6)" d="M16.6 3h-3.1v12.3a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.6a5.7 5.7 0 1 0 4.9 5.6V9.1a7.3 7.3 0 0 0 4.3 1.4V7.4c-2.3 0-4.3-2-4.3-4.4z"/><path style="fill:#fe2c55" transform="translate(.8 .6)" d="M16.6 3h-3.1v12.3a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.6a5.7 5.7 0 1 0 4.9 5.6V9.1a7.3 7.3 0 0 0 4.3 1.4V7.4c-2.3 0-4.3-2-4.3-4.4z"/><path ${W} d="M16.6 3h-3.1v12.3a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.6a5.7 5.7 0 1 0 4.9 5.6V9.1a7.3 7.3 0 0 0 4.3 1.4V7.4c-2.3 0-4.3-2-4.3-4.4z"/>` },
+    instagram: { label: 'Instagram', bg: 'linear-gradient(45deg,#f9ce34,#ee2a7b 50%,#6228d7)', stroke: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17 7h.01" stroke-width="3"/>' },
+    email: { label: 'Email', bg: '#ea580c', stroke: ICONS.mail },
+    website: { label: 'Website', bg: '#0ea5e9', stroke: ICONS.globe },
+    support: { label: 'Hỗ trợ', bg: '#7c4ddb', stroke: ICONS.headset },
+    link: { label: 'Liên kết khác', bg: '#64748b', stroke: ICONS.link }
   };
 
   /* ---------- Màu chủ đạo ---------- */
@@ -232,6 +312,15 @@
     ACCENTS,
     icon(n, s = 18, cls = '') {
       return `<svg class="ic ${cls}" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+    },
+    CHANNELS,
+    channel(key, size = 36, cls = '') {
+      const c = CHANNELS[key] || CHANNELS.link;
+      const g = Math.round(size * 0.56);
+      const inner = c.text
+        ? `<span class="ch-txt" style="font-size:${Math.max(8, Math.round(size * 0.3))}px">${c.text}</span>`
+        : `<svg width="${g}" height="${g}" viewBox="0 0 24 24" aria-hidden="true" ${c.stroke ? 'fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' : ''}>${c.stroke || c.svg}</svg>`;
+      return `<span class="ch-ic ${cls}" style="--chbg:${c.bg};width:${size}px;height:${size}px">${inner}</span>`;
     },
     hydrate(root = document) {
       root.querySelectorAll('i[data-icon]').forEach(i => { i.outerHTML = UI.icon(i.dataset.icon, +i.dataset.size || 18, i.className || ''); });

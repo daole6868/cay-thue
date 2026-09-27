@@ -21,6 +21,8 @@
     cats: { t: 'Danh mục', i: 'folder', r: vCats },
     prods: { t: 'Sản phẩm', i: 'box', r: vProds },
     content: { t: 'Hỏi đáp & đánh giá', i: 'help', r: vContent },
+    footer: { t: 'Chân trang', i: 'layout', r: vFooter },
+    quick: { t: 'Liên hệ nhanh', i: 'headset', r: vQuick },
     settings: { t: 'Cài đặt', i: 'sliders', r: vSettings },
     backup: { t: 'Sao lưu dữ liệu', i: 'database', r: vBackup }
   };
@@ -41,13 +43,42 @@
       (p.badge === 'new' ? '<span class="badge badge-new">Mới</span>' : '') +
       (off ? `<span class="badge badge-sale">-${off}%</span>` : '');
   };
+  // Bộ 3 nút gạt: Mặc định / Để trống / Tùy chỉnh (chỉ bật được 1)
+  const MODES = [['default', 'Mặc định'], ['none', 'Để trống'], ['custom', 'Tùy chỉnh']];
+  const modeCtl = (name, cur) => `<div class="modes" role="radiogroup">${MODES.map(([k, l]) =>
+    `<label class="mode${k === cur ? ' on' : ''}"><span class="switch"><input type="radio" name="${name}" value="${k}" ${k === cur ? 'checked' : ''}><span></span></span>${l}</label>`).join('')}</div>`;
+  function bindMode(root, name, ta, note, customText, defText, what) {
+    let custom = customText;
+    const cur = () => root.querySelector(`input[name="${name}"]:checked`).value;
+    const apply = () => {
+      const m = cur();
+      $$(`input[name="${name}"]`, root).forEach(r => r.closest('.mode').classList.toggle('on', r.checked));
+      ta.classList.toggle('is-default', m === 'default');
+      ta.classList.toggle('is-none', m === 'none');
+      ta.classList.remove('invalid');
+      if (m === 'custom') {
+        ta.disabled = false; ta.value = custom; ta.placeholder = `Nhập ${what} riêng cho gói này…`;
+        note.textContent = `Bắt buộc nhập nội dung ${what} để lưu.`;
+      } else if (m === 'default') {
+        ta.disabled = true; ta.value = defText; ta.placeholder = '';
+        note.textContent = `Dùng ${what} mặc định, sửa trong Cài đặt › Nội dung mặc định.`;
+      } else {
+        ta.disabled = true; ta.value = ''; ta.placeholder = `Khách sẽ không thấy phần ${what}.`;
+        note.textContent = `Khi lưu, trang khách sẽ không hiện phần ${what} của gói này.`;
+      }
+    };
+    ta.addEventListener('input', () => { if (cur() === 'custom') custom = ta.value; });
+    $$(`input[name="${name}"]`, root).forEach(r => r.addEventListener('change', () => { apply(); if (cur() === 'custom') ta.focus(); }));
+    apply();
+    return () => ({ mode: cur(), text: (cur() === 'custom' ? ta.value : custom).trim() });
+  }
   const idOf = el => el && el.closest('[data-id]') && el.closest('[data-id]').dataset.id;
 
   function fieldErr(root, key, msg) {
     const e = root.querySelector(`[data-err="${key}"]`);
     if (e) {
       e.textContent = msg;
-      const inp = e.parentElement.querySelector('.input, .select');
+      const inp = e.parentElement.querySelector('.input, .select, .textarea');
       if (inp) {
         inp.classList.remove('invalid'); void inp.offsetWidth; inp.classList.add('invalid'); inp.focus();
         inp.addEventListener('input', () => { inp.classList.remove('invalid'); e.textContent = ''; }, { once: true });
@@ -132,9 +163,9 @@
     if (!Store.session.active()) { showLogin(); return; }
     const want = location.hash.slice(1);
     const key = ROUTES[want] ? want : 'dashboard';
-    if (A.dirty && A.route === 'settings' && key !== 'settings') {
-      const ok = await UI.confirm({ title: 'Bỏ thay đổi chưa lưu?', text: 'Các thay đổi trong Cài đặt chưa được lưu sẽ bị mất.', ok: 'Bỏ thay đổi', cancel: 'Ở lại', danger: true });
-      if (!ok) { skipHash = true; location.hash = 'settings'; return; }
+    if (A.dirty && DRAFT_ROUTES.includes(A.route) && key !== A.route) {
+      const ok = await UI.confirm({ title: 'Bỏ thay đổi chưa lưu?', text: `Các thay đổi trong mục ${ROUTES[A.route].t} chưa được lưu sẽ bị mất.`, ok: 'Bỏ thay đổi', cancel: 'Ở lại', danger: true });
+      if (!ok) { skipHash = true; location.hash = A.route; return; }
       discardSettings();
     }
     if (key !== A.route) A.sel.clear();
@@ -319,7 +350,7 @@
     const g = id ? Store.game(id) : null;
     const f = g ? { ...g } : { name: '', initials: '', color: COLORS[6], desc: '', visible: true };
     const m = UI.modal({
-      side: true,
+      cls: 'big narrow',
       html: `<div class="dr-h"><h3>${g ? 'Sửa game' : 'Thêm game'}</h3><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="Đóng">${I('x')}</button></div>
       <form class="dr-b" id="gf" novalidate>
         <div class="preview-av"><span class="av lg" id="gfAv" style="--c:${U.esc(f.color)}"></span><div><b id="gfName"></b><small class="muted" id="gfDesc"></small></div></div>
@@ -666,7 +697,7 @@
     const f = p ? { ...p } : { name: '', price: 0, oldPrice: 0, time: '', badge: '', desc: '', notes: '', visible: true, catId: c0 ? c0.id : '' };
     const s = d.settings;
     const m = UI.modal({
-      side: true, cls: 'wide',
+      cls: 'big',
       html: `<div class="dr-h"><h3>${p ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}</h3><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="Đóng">${I('x')}</button></div>
       <form class="dr-b" id="pf" novalidate>
         <div class="pv"><span class="pv-l">Xem trước trên trang khách</span>
@@ -680,8 +711,10 @@
           <div class="field"><label for="fTime">Thời gian hoàn thành</label><input class="input" id="fTime" value="${U.esc(f.time)}" placeholder="Ví dụ: 2–3 ngày" list="timeList" maxlength="30">
             <datalist id="timeList">${['1 ngày', '1–2 ngày', '2 ngày', '2–3 ngày', '3–5 ngày', '5–7 ngày', '7 ngày', '7–10 ngày', '30 ngày'].map(t => `<option value="${t}">`).join('')}</datalist></div>
           <div class="field"><span class="label">Nhãn</span><div class="seg full" id="fBadge">${[['', 'Không'], ['hot', 'Hot'], ['new', 'Mới']].map(([k, l]) => `<button type="button" data-v="${k}" class="${f.badge === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-          <div class="field full"><label for="fDesc">Mô tả</label><textarea class="textarea" id="fDesc" placeholder="${U.esc(s.defaultDesc)}">${U.esc(f.desc)}</textarea><span class="hint">Để trống sẽ dùng mô tả mặc định trong Cài đặt.</span></div>
-          <div class="field full"><label for="fNotes">Lưu ý (mỗi dòng một ý)</label><textarea class="textarea" id="fNotes" placeholder="${U.esc(s.defaultNotes)}">${U.esc(f.notes)}</textarea><span class="hint">Để trống sẽ dùng lưu ý mặc định.</span></div>
+          <div class="field full"><span class="label">Mô tả</span>${modeCtl('fDescMode', p ? U.descMode(p) : 'default')}
+            <textarea class="textarea" id="fDesc" rows="4" aria-label="Mô tả"></textarea><span class="mode-note" id="fDescNote"></span><span class="err" data-err="desc"></span></div>
+          <div class="field full"><span class="label">Lưu ý (mỗi dòng một ý)</span>${modeCtl('fNotesMode', p ? U.notesMode(p) : 'default')}
+            <textarea class="textarea" id="fNotes" rows="4" aria-label="Lưu ý"></textarea><span class="mode-note" id="fNotesNote"></span><span class="err" data-err="notes"></span></div>
           <label class="switch-row full">${sw(f.visible, 'id="fVis"')}<span><b>Hiển thị cho khách</b><small class="muted block">Tắt để ẩn gói mà không cần xóa.</small></span></label>
         </div>
         <button type="submit" hidden></button>
@@ -706,6 +739,8 @@
       h.classList.toggle('warn', !!(old && old <= pr));
     };
     fillCats(); upd();
+    const descMode = bindMode(el, 'fDescMode', q('#fDesc'), q('#fDescNote'), p ? p.desc || '' : '', s.defaultDesc, 'mô tả');
+    const notesMode = bindMode(el, 'fNotesMode', q('#fNotes'), q('#fNotesNote'), p ? p.notes || '' : '', s.defaultNotes, 'lưu ý');
     q('#fGame').addEventListener('change', () => { fillCats(); upd(); });
     q('#fBadge').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -721,7 +756,10 @@
       if (!catId) return fieldErr(el, 'cat', 'Vui lòng chọn danh mục (tạo danh mục trước nếu game chưa có).');
       if (!name) return fieldErr(el, 'name', 'Vui lòng nhập tên gói.');
       if (!price) return fieldErr(el, 'price', 'Vui lòng nhập giá bán.');
-      const data = { catId, name, price, oldPrice: U.parseNum(q('#fOld').value), time: q('#fTime').value.trim(), badge, desc: q('#fDesc').value.trim(), notes: q('#fNotes').value.trim(), visible: q('#fVis').checked };
+      const dm = descMode(), nm = notesMode();
+      if (dm.mode === 'custom' && !dm.text) return fieldErr(el, 'desc', 'Chế độ Tùy chỉnh cần nhập nội dung mô tả.');
+      if (nm.mode === 'custom' && !nm.text) return fieldErr(el, 'notes', 'Chế độ Tùy chỉnh cần nhập ít nhất một lưu ý.');
+      const data = { catId, name, price, oldPrice: U.parseNum(q('#fOld').value), time: q('#fTime').value.trim(), badge, descMode: dm.mode, desc: dm.text, notesMode: nm.mode, notes: nm.text, visible: q('#fVis').checked };
       let nid = id;
       if (p) {
         const moved = p.catId !== catId;
@@ -967,9 +1005,15 @@
     { t: 'Liên hệ', i: 'phone', f: [
       ['zalo', 'Số Zalo / điện thoại', 'text', 'Nút “Nhắn Zalo” sẽ mở zalo.me/số này.'],
       ['facebook', 'Link Facebook', 'text'],
+      ['phone', 'Số điện thoại gọi', 'text', 'Dùng cho mục “Gọi điện”. Để trống sẽ dùng số Zalo.'],
       ['messenger', 'Link Messenger', 'text', 'Ví dụ: https://m.me/tenfanpage'],
       ['email', 'Email', 'text'],
-      ['hours', 'Giờ làm việc', 'text']
+      ['hours', 'Giờ làm việc', 'text'],
+      ['youtube', 'Link YouTube', 'text'],
+      ['tiktok', 'Link TikTok', 'text'],
+      ['instagram', 'Link Instagram', 'text'],
+      ['telegram', 'Link Telegram', 'text'],
+      ['discord', 'Link Discord', 'text']
     ] },
     { t: 'Số liệu trang chủ', i: 'chart', f: [
       ['statOrders', 'Đơn đã hoàn thành', 'number'],
@@ -1022,11 +1066,7 @@
           <div><button class="btn btn-primary" type="submit">${I('key', 16)}Đổi mật khẩu</button></div>
         </form></section>
     </div>
-    <div class="savebar${A.dirty ? ' show' : ''}" id="saveBar">
-      <span>${I('info', 16)}Bạn có thay đổi chưa lưu</span>
-      <button class="btn btn-sm" type="button" data-act="undo">Hoàn tác</button>
-      <button class="btn btn-primary btn-sm" type="button" data-act="save">${I('check', 14)}Lưu thay đổi</button>
-    </div>`;
+    ${saveBar()}`;
     const onField = e => {
       const t = e.target, k = t.dataset.k; if (!k) return;
       s[k] = t.type === 'checkbox' ? t.checked : t.type === 'number' ? Number(t.value) : t.value;
@@ -1056,6 +1096,251 @@
       f.reset();
       UI.toast('Đã đổi mật khẩu');
     });
+  }
+
+  /* =========================================================
+     BẢN NHÁP DÙNG CHUNG (Cài đặt, Chân trang, Liên hệ nhanh)
+     ========================================================= */
+  const DRAFT_ROUTES = ['settings', 'footer', 'quick'];
+  const saveBar = () => `<div class="savebar${A.dirty ? ' show' : ''}" id="saveBar">
+      <span>${I('info', 16)}Bạn có thay đổi chưa lưu</span>
+      <button class="btn btn-sm" type="button" data-act="undo">Hoàn tác</button>
+      <button class="btn btn-primary btn-sm" type="button" data-act="save">${I('check', 14)}Lưu thay đổi</button>
+    </div>`;
+  function draftBarClick(e) {
+    const b = e.target.closest('#saveBar [data-act]'); if (!b) return false;
+    if (b.dataset.act === 'save') saveSettings();
+    if (b.dataset.act === 'undo') { discardSettings(); render(false); UI.toast('Đã hoàn tác thay đổi', 'info'); }
+    return true;
+  }
+  const udBtns = (i, n) => `<span class="ud"><button type="button" data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="Lên">${I('chevUp', 14)}</button><button type="button" data-act="down" ${i === n - 1 ? 'disabled' : ''} aria-label="Xuống">${I('chevDown', 14)}</button></span>`;
+  const eyeBtn = on => `<button class="btn btn-sm btn-icon btn-ghost eye${on ? ' on' : ''}" type="button" data-act="eye" title="${on ? 'Đang hiện, bấm để ẩn' : 'Đang ẩn, bấm để hiện'}" aria-label="${on ? 'Ẩn' : 'Hiện'}">${I(on ? 'eye' : 'eyeOff', 16)}</button>`;
+  // Thao tác trên một dòng của danh sách trong bản nháp
+  function rowAct(arr, id, act, onEdit, dupFn) {
+    const i = arr.findIndex(x => x.id === id); if (i < 0) return;
+    let flash = id;
+    if (act === 'up' && i > 0) [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+    else if (act === 'down' && i < arr.length - 1) [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+    else if (act === 'eye') arr[i].visible = arr[i].visible === false;
+    else if (act === 'edit') { onEdit(); return; }
+    else if (act === 'dup') { const c = dupFn(arr[i]); arr.splice(i + 1, 0, c); flash = c.id; }
+    else if (act === 'trash') { arr.splice(i, 1); flash = null; }
+    else return;
+    setDirty(true); render(false);
+    if (flash) flashRow(flash);
+  }
+
+  // Hộp thoại thêm/sửa một mục có biểu tượng (dùng cho Chân trang và Liên hệ nhanh)
+  function channelItemForm({ item, title, onSave }) {
+    const x = item ? { ...item } : { icon: 'zalo', name: 'Zalo', desc: '', url: '', visible: true };
+    const s = A.draft || D().settings;
+    const m = UI.modal({
+      cls: 'form-modal',
+      html: `<div class="md-h"><h3>${title}</h3><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="Đóng">${I('x')}</button></div>
+      <form class="md-b" id="ciForm" novalidate>
+        <div class="field"><span class="label">Biểu tượng</span>
+          <div class="ch-pick" id="chPick" role="radiogroup">${Object.entries(UI.CHANNELS).map(([k, c]) =>
+            `<button type="button" class="chp${k === x.icon ? ' on' : ''}" data-k="${k}" role="radio" aria-checked="${k === x.icon}" title="${c.label}">${UI.channel(k, 32)}<span>${c.label}</span></button>`).join('')}</div></div>
+        <div class="form-grid">
+          <div class="field"><label for="ciName">Tên</label><input class="input" id="ciName" maxlength="40"><span class="err" data-err="name"></span></div>
+          <div class="field"><label for="ciDesc">Mô tả <em class="opt-l">(nếu có)</em></label><input class="input" id="ciDesc" maxlength="60"></div>
+        </div>
+        <div class="field"><label for="ciUrl">Link</label><input class="input" id="ciUrl" placeholder="https://…"><span class="hint" id="ciHint"></span></div>
+        <button type="submit" hidden></button>
+      </form>
+      <div class="md-f"><button class="btn btn-ghost" type="button" data-close>Hủy</button><button class="btn btn-primary" type="button" id="ciSave">${I('check', 16)}${item ? 'Lưu' : 'Thêm'}</button></div>`
+    });
+    const q = sel => m.el.querySelector(sel);
+    q('#ciName').value = x.name; q('#ciDesc').value = x.desc || ''; q('#ciUrl').value = x.url || '';
+    const hint = () => {
+      const auto = U.channelUrl({ icon: x.icon, url: '' }, s);
+      const autoDesc = U.channelDesc({ icon: x.icon, desc: '' }, s);
+      q('#ciHint').textContent = auto ? `Để trống sẽ tự dùng: ${auto}` : ['zalo', 'messenger', 'phone', 'email', 'facebook', 'youtube', 'tiktok', 'instagram', 'telegram', 'discord'].includes(x.icon)
+        ? 'Chưa có trong Cài đặt › Liên hệ, hãy nhập link.' : 'Ví dụ: https://… hoặc tel:0900000000';
+      q('#ciDesc').placeholder = autoDesc ? `Để trống sẽ hiện: ${autoDesc}` : 'Ví dụ: Tư vấn & báo giá nhanh';
+    };
+    hint();
+    q('#chPick').addEventListener('click', e => {
+      const b = e.target.closest('.chp'); if (!b) return;
+      const prevLabel = UI.CHANNELS[x.icon] && UI.CHANNELS[x.icon].label;
+      x.icon = b.dataset.k;
+      $$('.chp', m.el).forEach(y => { y.classList.toggle('on', y === b); y.setAttribute('aria-checked', String(y === b)); });
+      const nm = q('#ciName');
+      if (!nm.value.trim() || nm.value === prevLabel) nm.value = UI.CHANNELS[x.icon].label;
+      hint();
+    });
+    const save = () => {
+      const name = q('#ciName').value.trim();
+      if (!name) return fieldErr(m.el, 'name', 'Vui lòng nhập tên.');
+      onSave({ ...x, name, desc: q('#ciDesc').value.trim(), url: q('#ciUrl').value.trim() });
+      m.close();
+    };
+    q('#ciSave').addEventListener('click', save);
+    q('#ciForm').addEventListener('submit', e => { e.preventDefault(); save(); });
+  }
+
+  /* =========================================================
+     CHÂN TRANG
+     ========================================================= */
+  const COL_TYPES = { services: 'Dịch vụ (tự lấy danh sách game)', contact: 'Liên hệ (tự lấy từ Cài đặt)', links: 'Danh sách link (tự thêm từng mục)' };
+  function vFooter(v) {
+    if (!A.draft) A.draft = U.clone(D().settings);
+    const s = A.draft;
+    if (!Array.isArray(s.footerCols)) s.footerCols = [];
+    const info = c => c.type === 'services' ? ['layout', `Dịch vụ (tự động) · ${c.limit || 5} game đầu`]
+      : c.type === 'contact' ? ['phone', 'Liên hệ (tự động)'] : ['link', `Danh sách link tự do · ${(c.items || []).length} mục`];
+    const linkCols = s.footerCols.filter(c => c.type === 'links');
+    v.innerHTML = `<div class="stack-narrow">
+      <section class="panel"><div class="panel-h"><span class="ph-ic">${I('user', 18)}</span><div><h2>Phần giới thiệu (cột bên trái)</h2><p class="muted small">Logo và tên lấy từ Cài đặt › Thông tin chung.</p></div></div>
+        <div class="panel-b form-stack">
+          <div class="field"><label for="ft-about">Đoạn giới thiệu ngắn</label><textarea class="textarea" id="ft-about" data-k="footerAbout" rows="3">${U.esc(s.footerAbout)}</textarea></div>
+          <label class="switch-card"><span><b>Hiện icon mạng xã hội</b><small>Link Facebook, YouTube, TikTok, Instagram, Telegram, Discord lấy từ Cài đặt › Liên hệ.</small></span>${sw(s.footerSocial, 'data-k="footerSocial"')}</label>
+        </div></section>
+      <section class="panel"><div class="panel-h"><span class="ph-ic">${I('columns', 18)}</span><div><h2>Các cột</h2><p class="muted small">Thêm, đổi tên, ẩn/hiện, sắp xếp. Loại “Dịch vụ” và “Liên hệ” tự lấy nội dung; loại “Danh sách link” bạn tự thêm từng mục bên dưới.</p></div></div>
+        <div class="panel-b"><ul class="rows" data-list="cols">${s.footerCols.map((c, i, arr) => {
+          const [ic, sub] = info(c);
+          return `<li class="row-card${c.visible === false ? ' is-off' : ''}" data-id="${c.id}">${udBtns(i, arr.length)}<span class="rc-ic">${I(ic, 17)}</span>
+            <span class="rc-main"><b>${U.esc(c.title)}</b><small>${sub}</small></span>
+            <span class="rc-act">${eyeBtn(c.visible !== false)}${rowBtn('edit', 'edit', 'Sửa')}${rowBtn('dup', 'copy', 'Nhân bản')}${rowBtn('trash', 'trash', 'Xóa', 'danger')}</span></li>`;
+        }).join('') || '<li class="rows-empty">Chưa có cột nào.</li>'}</ul>
+        <button class="btn btn-ghost btn-sm add-row" type="button" data-act="add-col">${I('plus', 14)}Thêm cột</button></div></section>
+      ${linkCols.map(c => `<section class="panel"><div class="panel-h"><span class="ph-ic">${I('link', 18)}</span><div><h2>Mục trong cột “${U.esc(c.title)}”</h2><p class="muted small">Mỗi mục gồm biểu tượng, tên, mô tả (nếu có) và link.</p></div></div>
+        <div class="panel-b"><ul class="rows" data-list="items" data-col="${c.id}">${(c.items || []).map((it, i, arr) => `<li class="row-card" data-id="${it.id}">${udBtns(i, arr.length)}${UI.channel(it.icon, 34)}
+            <span class="rc-main"><b>${U.esc(it.name)}</b><small>${U.esc([U.channelUrl(it, s) || 'Chưa có link', it.desc].filter(Boolean).join(' · '))}</small></span>
+            <span class="rc-act">${rowBtn('edit', 'edit', 'Sửa')}${rowBtn('dup', 'copy', 'Nhân bản')}${rowBtn('trash', 'trash', 'Xóa', 'danger')}</span></li>`).join('') || '<li class="rows-empty">Chưa có mục nào.</li>'}</ul>
+        <button class="btn btn-ghost btn-sm add-row" type="button" data-act="add-item" data-col="${c.id}">${I('plus', 14)}Thêm mục</button></div></section>`).join('')}
+      <section class="panel"><div class="panel-h"><span class="ph-ic">${I('shield', 18)}</span><h2>Dòng cuối trang</h2></div>
+        <div class="panel-b form-stack">
+          <div class="field"><label for="ft-copy">Dòng bản quyền</label><input class="input" id="ft-copy" data-k="footerCopyright" value="${U.esc(s.footerCopyright)}">
+            <span class="hint">Viết {year} để tự hiện năm hiện tại, {site} để hiện tên website. Ví dụ: © {year} {site}. Mọi quyền được bảo lưu.</span></div>
+          <label class="switch-card"><span><b>Hiện liên kết “Quản trị”</b><small>Nên tắt để khách không thấy đường vào trang quản trị.</small></span>${sw(s.footerAdminLink, 'data-k="footerAdminLink"')}</label>
+        </div></section>
+    </div>${saveBar()}`;
+    const onField = e => {
+      const t = e.target, k = t.dataset.k; if (!k) return;
+      s[k] = t.type === 'checkbox' ? t.checked : t.value;
+      setDirty(true);
+    };
+    v.oninput = onField; v.onchange = onField;
+    v.onclick = e => {
+      if (draftBarClick(e)) return;
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'add-col') return colForm();
+      if (act === 'add-item') return linkItemForm(b.dataset.col);
+      const li = b.closest('[data-id]'), list = b.closest('[data-list]');
+      if (!li || !list) return;
+      const id = li.dataset.id;
+      if (list.dataset.list === 'cols') {
+        rowAct(s.footerCols, id, act, () => colForm(id),
+          x => ({ ...U.clone(x), id: U.uid('fc'), title: x.title + ' (bản sao)', items: (x.items || []).map(it => ({ ...it, id: U.uid('fi') })) }));
+      } else {
+        const col = s.footerCols.find(c => c.id === list.dataset.col);
+        rowAct(col.items, id, act, () => linkItemForm(col.id, id), x => ({ ...x, id: U.uid('fi'), name: x.name + ' (bản sao)' }));
+      }
+    };
+  }
+
+  function colForm(id) {
+    const s = A.draft, c = id ? s.footerCols.find(x => x.id === id) : null;
+    const m = UI.modal({
+      cls: 'form-modal',
+      html: `<div class="md-h"><h3>${c ? 'Sửa cột' : 'Thêm cột'}</h3><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="Đóng">${I('x')}</button></div>
+      <form class="md-b" id="colForm" novalidate>
+        <div class="field"><label for="colTitle">Tên cột</label><input class="input" id="colTitle" maxlength="40" placeholder="Ví dụ: Cộng đồng"><span class="err" data-err="title"></span></div>
+        <div class="field"><label for="colType">Loại cột</label><select class="select" id="colType">${Object.entries(COL_TYPES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+        <div class="field" id="colLimitF"><label for="colLimit">Số game hiển thị</label><input class="input" id="colLimit" type="number" min="1" max="20"></div>
+        <button type="submit" hidden></button>
+      </form>
+      <div class="md-f"><button class="btn btn-ghost" type="button" data-close>Hủy</button><button class="btn btn-primary" type="button" id="colSave">${c ? 'Lưu' : 'Thêm'}</button></div>`
+    });
+    const q = sel => m.el.querySelector(sel);
+    q('#colTitle').value = c ? c.title : '';
+    q('#colType').value = c ? c.type : 'links';
+    q('#colLimit').value = c && c.limit ? c.limit : 5;
+    const sync = () => { q('#colLimitF').hidden = q('#colType').value !== 'services'; };
+    q('#colType').addEventListener('change', sync); sync();
+    const save = () => {
+      const title = q('#colTitle').value.trim();
+      if (!title) return fieldErr(m.el, 'title', 'Vui lòng nhập tên cột.');
+      const data = { title, type: q('#colType').value, limit: Math.max(1, +q('#colLimit').value || 5) };
+      if (c) Object.assign(c, data);
+      else s.footerCols.push({ id: U.uid('fc'), visible: true, items: [], ...data });
+      m.close(); setDirty(true); render(false);
+    };
+    q('#colSave').addEventListener('click', save);
+    q('#colForm').addEventListener('submit', e => { e.preventDefault(); save(); });
+  }
+
+  function linkItemForm(colId, id) {
+    const col = A.draft.footerCols.find(c => c.id === colId);
+    col.items = col.items || [];
+    const it = id ? col.items.find(x => x.id === id) : null;
+    channelItemForm({
+      item: it || { icon: 'facebook', name: 'Facebook', desc: '', url: '' },
+      title: it ? 'Sửa mục' : `Thêm mục vào “${col.title}”`,
+      onSave: data => {
+        if (it) Object.assign(it, data); else col.items.push({ ...data, id: U.uid('fi') });
+        setDirty(true); render(false);
+      }
+    });
+  }
+
+  /* =========================================================
+     LIÊN HỆ NHANH
+     ========================================================= */
+  function vQuick(v) {
+    if (!A.draft) A.draft = U.clone(D().settings);
+    const s = A.draft;
+    if (!s.quick) s.quick = { on: false, auto: false, autoSec: 2, side: 'right', title: 'Hỗ trợ nhanh', sub: '', items: [] };
+    const q = s.quick;
+    q.items = q.items || [];
+    const preview = () => `<div class="qp${q.side === 'left' ? ' left' : ''}"><div class="qp-panel"><div class="qp-h"><b>${U.esc(q.title || 'Hỗ trợ nhanh')}</b>${q.sub ? `<span><i></i>${U.esc(q.sub)}</span>` : ''}</div>
+      ${q.items.filter(x => x.visible !== false).map(x => { const d = U.channelDesc(x, s); return `<div class="qp-item">${UI.channel(x.icon, 34)}<span><b>${U.esc(x.name)}</b>${d ? `<small>${U.esc(d)}</small>` : ''}</span></div>`; }).join('') || '<p class="muted small">Chưa có mục nào đang hiện.</p>'}
+      </div><span class="qp-tab">${I('headset', 18)}</span></div>`;
+    v.innerHTML = `<div class="quick-grid">
+      <section class="panel"><div class="panel-h"><span class="ph-ic">${I('headset', 18)}</span><div><h2>Thanh liên hệ nhanh</h2><p class="muted small">Nút nhỏ ở cạnh màn hình, bấm vào trượt ra danh sách liên hệ. Có thể tự hiện vài giây khi khách vào trang rồi lùi vào.</p></div></div>
+        <div class="panel-b form-stack">
+          <div class="form-grid">
+            <label class="switch-card"><span><b>Bật thanh liên hệ nhanh</b></span>${sw(q.on, 'data-q="on"')}</label>
+            <label class="switch-card"><span><b>Tự hiện khi tải trang rồi lùi vào</b></span>${sw(q.auto, 'data-q="auto"')}</label>
+            <div class="field"><label for="qSec">Thời gian tự hiện</label><div class="range-row"><input type="range" id="qSec" min="1" max="10" step="1" value="${+q.autoSec || 2}" data-q="autoSec"><b id="qSecV">${+q.autoSec || 2} giây</b></div></div>
+            <div class="field"><label for="qSide">Vị trí</label><select class="select" id="qSide" data-q="side"><option value="right" ${q.side !== 'left' ? 'selected' : ''}>Cạnh phải màn hình</option><option value="left" ${q.side === 'left' ? 'selected' : ''}>Cạnh trái màn hình</option></select></div>
+            <div class="field"><label for="qTitle">Tiêu đề thanh</label><input class="input" id="qTitle" data-q="title" value="${U.esc(q.title)}" maxlength="40"></div>
+            <div class="field"><label for="qSubIn">Dòng phụ (chấm xanh)</label><input class="input" id="qSubIn" data-q="sub" value="${U.esc(q.sub)}" maxlength="50"></div>
+          </div>
+          <div class="field"><span class="label">Các mục liên hệ</span>
+            <ul class="rows" data-list="quick">${q.items.map((x, i, arr) => `<li class="row-card${x.visible === false ? ' is-off' : ''}" data-id="${x.id}">${udBtns(i, arr.length)}${UI.channel(x.icon, 34)}
+              <span class="rc-main"><b>${U.esc(x.name)}</b><small>${U.esc([U.channelUrl(x, s) || 'Chưa có link', U.channelDesc(x, s)].filter(Boolean).join(' · '))}</small></span>
+              <span class="rc-act">${eyeBtn(x.visible !== false)}${rowBtn('edit', 'edit', 'Sửa')}${rowBtn('dup', 'copy', 'Nhân bản')}${rowBtn('trash', 'trash', 'Xóa', 'danger')}</span></li>`).join('') || '<li class="rows-empty">Chưa có mục nào.</li>'}</ul>
+            <div><button class="btn btn-ghost btn-sm add-row" type="button" data-act="add-quick">${I('plus', 14)}Thêm mục liên hệ</button></div>
+            <p class="hint">Mẹo: với Zalo, Messenger, Gọi điện, Email, Facebook… để trống ô Link thì tự lấy từ Cài đặt › Liên hệ. Bấm con mắt để ẩn/hiện từng mục.</p>
+          </div>
+        </div></section>
+      <section class="panel qp-wrap"><div class="panel-h"><span class="ph-ic">${I('eye', 18)}</span><h2>Xem trước</h2></div><div class="panel-b" id="qPrev">${preview()}</div></section>
+    </div>${saveBar()}`;
+    const onField = e => {
+      const t = e.target, k = t.dataset.q; if (!k) return;
+      q[k] = t.type === 'checkbox' ? t.checked : t.type === 'range' ? +t.value : t.value;
+      if (k === 'autoSec') $('#qSecV', v).textContent = t.value + ' giây';
+      $('#qPrev', v).innerHTML = preview();
+      setDirty(true);
+    };
+    v.oninput = onField; v.onchange = onField;
+    v.onclick = e => {
+      if (draftBarClick(e)) return;
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'add-quick') {
+        return channelItemForm({ title: 'Thêm mục liên hệ', onSave: data => { q.items.push({ ...data, id: U.uid('q'), visible: true }); setDirty(true); render(false); } });
+      }
+      const li = b.closest('[data-id]'); if (!li) return;
+      const id = li.dataset.id;
+      rowAct(q.items, id, act, () => {
+        const it = q.items.find(x => x.id === id);
+        channelItemForm({ item: it, title: 'Sửa mục liên hệ', onSave: data => { Object.assign(it, data); setDirty(true); render(false); } });
+      }, x => ({ ...x, id: U.uid('q'), name: x.name + ' (bản sao)' }));
+    };
   }
 
   /* =========================================================
@@ -1160,14 +1445,14 @@
     window.addEventListener('hashchange', route);
     window.addEventListener('resize', U.debounce(moveInd, 120));
     document.addEventListener('keydown', e => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && A.route === 'settings' && A.dirty) { e.preventDefault(); saveSettings(); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && DRAFT_ROUTES.includes(A.route) && A.dirty) { e.preventDefault(); saveSettings(); }
       if (e.key === 'Escape') toggleSidebar(false);
     });
     Store.on(kind => {
       if (kind === 'session' && !Store.session.active()) { showLogin(); return; }
       if ($('#app').hidden) return;
       updateCounts();
-      if (!(A.route === 'settings' && A.dirty) && !document.querySelector('.overlay')) render(false);
+      if (!(DRAFT_ROUTES.includes(A.route) && A.dirty) && !document.querySelector('.overlay')) render(false);
     });
 
     if (Store.session.active()) showApp(); else showLogin();

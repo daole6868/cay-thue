@@ -162,6 +162,12 @@
       announcementOn: true,
       announcement: "Mùa giải mới: giảm đến 20% các gói cày rank. Áp dụng đến hết 31/10.",
       zalo: "0900 000 000",
+      phone: "0900 000 000",
+      youtube: "",
+      tiktok: "",
+      instagram: "",
+      telegram: "",
+      discord: "",
       facebook: "https://facebook.com/",
       messenger: "https://m.me/",
       email: "lienhe@example.com",
@@ -171,10 +177,42 @@
       statRating: 4.9,
       accent: "cobalt",
       defaultDesc: "Booster có kinh nghiệm chơi trực tiếp trên tài khoản của bạn, không dùng phần mềm thứ ba. Tiến độ được báo qua Zalo mỗi ngày. Nếu không đạt mức đã cam kết, bạn được hoàn tiền phần chưa hoàn thành.",
-      defaultNotes: "Không đăng nhập tài khoản trong thời gian cày.\nGiá có thể thay đổi theo mùa giải.\nLiên hệ trước khi chuyển khoản để xác nhận lịch.",
+      defaultNotes: "Không đăng nhập trong thời gian cày.\nGiá có thể thay đổi.\nLiên hệ admin trước khi chuyển khoản để xác nhận.",
       maintenanceOn: false,
       maintenanceText: "Website đang cập nhật bảng giá. Vui lòng quay lại sau ít phút hoặc nhắn Zalo để được báo giá ngay.",
-      passwordHash: ""
+      passwordHash: "",
+
+      // Chân trang
+      footerAbout: "Bảng giá cày thuê minh bạch cho game thủ bận rộn. Chơi tay 100%, báo tiến độ mỗi ngày, hoàn tiền nếu không đạt.",
+      footerSocial: true,
+      footerCols: [
+        { id: "fc1", type: "services", title: "Dịch vụ", visible: true, limit: 5, items: [] },
+        { id: "fc2", type: "contact", title: "Liên hệ", visible: true, items: [] },
+        { id: "fc3", type: "links", title: "Cộng đồng", visible: true, items: [
+          { id: "fi1", icon: "facebook", name: "Fanpage Facebook", desc: "Cập nhật ưu đãi mới", url: "" },
+          { id: "fi2", icon: "tiktok", name: "TikTok", desc: "Video kết quả cày thuê", url: "https://tiktok.com/" },
+          { id: "fi3", icon: "discord", name: "Discord", desc: "Giao lưu và nhận quà", url: "https://discord.gg/" }
+        ] }
+      ],
+      footerCopyright: "© {year} {site}. Giá có thể thay đổi theo mùa giải.",
+      footerAdminLink: true,
+
+      // Thanh liên hệ nhanh
+      quick: {
+        on: true,
+        auto: true,
+        autoSec: 2,
+        side: "right",
+        title: "Hỗ trợ nhanh",
+        sub: "Phản hồi trong 5 phút",
+        items: [
+          { id: "q1", icon: "zalo", name: "Zalo", desc: "Tư vấn & báo giá nhanh", url: "", visible: true },
+          { id: "q2", icon: "messenger", name: "Messenger", desc: "Nhắn tin qua Facebook", url: "", visible: true },
+          { id: "q3", icon: "phone", name: "Gọi điện", desc: "", url: "", visible: true },
+          { id: "q4", icon: "telegram", name: "Telegram", desc: "Nhận đơn 24/7", url: "https://t.me/", visible: false },
+          { id: "q5", icon: "discord", name: "Discord", desc: "Cộng đồng game thủ", url: "https://discord.gg/", visible: false }
+        ]
+      }
     },
     games: games,
     cats: cats,

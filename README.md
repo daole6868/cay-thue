@@ -21,6 +21,9 @@ assets/js/admin.js  Logic trang quản trị
 KE-HOACH.md         Kế hoạch bố cục, hiệu ứng, chức năng
 ```
 
+## Các mục quản trị
+Tổng quan · Game · Danh mục · Sản phẩm (mô tả/lưu ý: Mặc định / Để trống / Tùy chỉnh) · Hỏi đáp & đánh giá · **Chân trang** (giới thiệu, các cột, link, dòng bản quyền) · **Liên hệ nhanh** (thanh cạnh màn hình, tự hiện vài giây) · Cài đặt · Sao lưu dữ liệu.
+
 ## Lưu ý về dữ liệu
 - Chỉnh sửa trong trang quản trị được lưu **trong trình duyệt đang dùng**.
 - Khi đăng web: vào **Quản trị › Sao lưu dữ liệu › Tải file data.js**, chép đè vào `assets/js/data.js` rồi tải lên hosting.

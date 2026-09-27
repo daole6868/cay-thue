@@ -267,35 +267,22 @@
     </section>
   </main>
 
-  <!-- CHÂN TRANG -->
+  <!-- CHÂN TRANG (nội dung quản lý trong Quản trị › Chân trang) -->
   <footer class="footer" id="lien-he">
     <div class="container">
-      <div class="foot-grid">
-        <div class="foot">
+      <div class="foot-grid" id="footGrid">
+        <div class="foot foot-about">
           <a class="logo" href="#top"><span class="logo-mark"><i data-icon="gamepad" data-size="20"></i></span><span data-bind="siteName"></span></a>
-          <p class="muted" data-bind="tagline"></p>
-        </div>
-        <div class="foot">
-          <h4>Liên hệ</h4>
-          <ul>
-            <li><i data-icon="phone" data-size="16"></i><span>Zalo: <b data-bind="zalo"></b></span><button class="link-btn" data-copy="zalo" aria-label="Sao chép số Zalo"><i data-icon="copy" data-size="14"></i></button></li>
-            <li><i data-icon="mail" data-size="16"></i><span data-bind="email"></span></li>
-            <li><i data-icon="clock" data-size="16"></i><span data-bind="hours"></span></li>
-          </ul>
-        </div>
-        <div class="foot">
-          <h4>Liên kết</h4>
-          <ul>
-            <li><a href="#bang-gia">Bảng giá</a></li>
-            <li><a href="#hoi-dap">Hỏi đáp</a></li>
-            <li><a data-href="facebook" target="_blank" rel="noopener">Fanpage Facebook</a></li>
-            <li><a href="admin.html">Trang quản trị</a></li>
-          </ul>
+          <p class="muted" id="footAbout"></p>
+          <div class="socials" id="footSocial"></div>
         </div>
       </div>
       <div class="foot-bottom">
-        <span>© <span id="year"></span> <span data-bind="siteName"></span>. Giá có thể thay đổi theo mùa giải.</span>
-        <button class="link-btn" id="themeBtn2"><i data-icon="moon" data-size="14"></i>Đổi giao diện sáng / tối</button>
+        <span id="footCopy"></span>
+        <span class="foot-links">
+          <a href="admin.html" id="footAdmin">Quản trị</a>
+          <button class="link-btn" id="themeBtn2"><i data-icon="moon" data-size="14"></i>Đổi giao diện sáng / tối</button>
+        </span>
       </div>
     </div>
   </footer>
@@ -314,14 +301,13 @@
     </div>
   </div>
 
-  <!-- Nút liên hệ nổi -->
-  <div class="fab" id="fab">
-    <div class="fab-menu">
-      <a class="fab-item" data-href="zalo" target="_blank" rel="noopener" style="--i:2"><i data-icon="chat"></i>Nhắn Zalo</a>
-      <a class="fab-item" data-href="messenger" target="_blank" rel="noopener" style="--i:1"><i data-icon="chat"></i>Messenger</a>
-      <button class="fab-item" data-copy="zalo" style="--i:0"><i data-icon="copy"></i>Sao chép số Zalo</button>
+  <!-- Thanh liên hệ nhanh (quản lý trong Quản trị › Liên hệ nhanh) -->
+  <div class="qc" id="qc" hidden>
+    <button class="qc-tab" id="qcTab" type="button" aria-expanded="false" aria-controls="qcPanel" aria-label="Mở hỗ trợ nhanh"><i data-icon="headset" data-size="20"></i></button>
+    <div class="qc-panel" id="qcPanel" role="region" aria-label="Hỗ trợ nhanh">
+      <div class="qc-h"><b id="qcTitle"></b><span id="qcSub"><i class="qc-dot"></i><span></span></span></div>
+      <div class="qc-list" id="qcList"></div>
     </div>
-    <button class="fab-main" id="fabMain" aria-label="Liên hệ" aria-expanded="false"><i data-icon="chat" data-size="24"></i></button>
   </div>
   <button class="to-top" id="toTop" aria-label="Lên đầu trang">
     <svg class="ring" viewBox="0 0 46 46" aria-hidden="true"><circle cx="23" cy="23" r="21" id="toTopRing"/></svg>

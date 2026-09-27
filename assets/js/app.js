@@ -295,7 +295,7 @@
     }
     const c = Store.cat(p.catId), g = Store.game(c.gameId), s = D().settings;
     const off = U.off(p);
-    const notes = (p.notes && p.notes.trim() ? p.notes : s.defaultNotes).split('\n').map(x => x.trim()).filter(Boolean);
+    const notes = U.notesOf(p, s), desc = U.descOf(p, s);
     const from = S.price || Math.round(p.price * 0.6);
     box.dataset.state = 'p-' + p.id;
     panel.classList.add('has');
@@ -311,7 +311,7 @@
         <div class="fact">${UI.icon('clock', 18)}<div><dt>Thời gian</dt><dd>${U.esc(p.time || 'Liên hệ')}</dd></div></div>
         <div class="fact">${UI.icon('tag', 18)}<div><dt>Mã gói</dt><dd class="mono">${U.esc(p.id.toUpperCase())}</dd></div></div>
       </dl>
-      <p class="dt-desc">${U.esc(p.desc && p.desc.trim() ? p.desc : s.defaultDesc)}</p>
+      ${desc ? `<p class="dt-desc">${U.esc(desc).replace(/\n/g, '<br>')}</p>` : ''}
       ${notes.length ? `<ul class="notes">${notes.map(n => `<li>${UI.icon('check', 16)}<span>${U.esc(n)}</span></li>`).join('')}</ul>` : ''}
       <div class="dt-actions">
         <a class="btn btn-primary btn-lg wide" data-href="zalo" target="_blank" rel="noopener" id="orderZalo">${UI.icon('chat', 18)}Nhắn Zalo đặt gói này</a>
@@ -506,12 +506,82 @@
     $('#menuBtn').setAttribute('aria-expanded', String(open));
     document.documentElement.classList.toggle('no-scroll', open);
   }
-  function toggleFab(open) {
-    const f = $('#fab');
-    if (open === f.classList.contains('open')) return;
-    f.classList.toggle('open', open);
-    $('#fabMain').setAttribute('aria-expanded', String(open));
-    $('#fabMain').innerHTML = UI.icon(open ? 'x' : 'chat', 24);
+  /* ---------- Thanh liên hệ nhanh ---------- */
+  const QC = { timer: null, touched: false, shown: false };
+  function renderQuick() {
+    const s = D().settings, q = s.quick || {};
+    const items = (q.items || []).filter(it => it.visible !== false);
+    const box = $('#qc');
+    box.hidden = !q.on || !items.length;
+    if (box.hidden) return;
+    box.classList.toggle('left', q.side === 'left');
+    $('#qcTitle').textContent = q.title || 'Hỗ trợ nhanh';
+    $('#qcSub').hidden = !q.sub;
+    $('#qcSub span').textContent = q.sub || '';
+    $('#qcList').innerHTML = items.map(it => {
+      const url = U.channelUrl(it, s), desc = U.channelDesc(it, s);
+      const ext = /^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : '';
+      const inner = `${UI.channel(it.icon, 36)}<span class="qc-t"><b>${U.esc(it.name)}</b>${desc ? `<small>${U.esc(desc)}</small>` : ''}</span>`;
+      return url ? `<a class="qc-item" href="${U.esc(url)}"${ext}>${inner}</a>` : `<div class="qc-item">${inner}</div>`;
+    }).join('');
+  }
+  function toggleQuick(open) {
+    const box = $('#qc');
+    if (box.hidden || open === box.classList.contains('open')) return;
+    box.classList.toggle('open', open);
+    $('#qcTab').setAttribute('aria-expanded', String(open));
+    $('#qcTab').setAttribute('aria-label', open ? 'Đóng hỗ trợ nhanh' : 'Mở hỗ trợ nhanh');
+  }
+  function autoQuick() {
+    const q = D().settings.quick || {};
+    if (QC.shown || !q.on || !q.auto || $('#qc').hidden) return;
+    QC.shown = true;
+    setTimeout(() => {
+      if (QC.touched) return;
+      toggleQuick(true);
+      QC.timer = setTimeout(() => { if (!QC.touched) toggleQuick(false); }, Math.max(1, +q.autoSec || 2) * 1000);
+    }, 700);
+  }
+
+  /* ---------- Chân trang ---------- */
+  function renderFooter() {
+    const s = D().settings;
+    $('#footAbout').textContent = s.footerAbout || '';
+    $('#footAbout').hidden = !s.footerAbout;
+    const socials = ['facebook', 'youtube', 'tiktok', 'instagram', 'telegram', 'discord'].filter(k => s[k]);
+    $('#footSocial').hidden = !s.footerSocial || !socials.length;
+    $('#footSocial').innerHTML = socials.map(k => `<a href="${U.esc(s[k])}" target="_blank" rel="noopener" aria-label="${UI.CHANNELS[k].label}" title="${UI.CHANNELS[k].label}">${UI.channel(k, 34)}</a>`).join('');
+
+    const cols = (s.footerCols || []).filter(c => c.visible !== false);
+    $$('#footGrid > .foot-col').forEach(el => el.remove());
+    const grid = $('#footGrid');
+    cols.forEach(c => {
+      let body = '';
+      if (c.type === 'services') {
+        body = games().slice(0, Math.max(1, +c.limit || 5)).map(g => `<li><a href="#bang-gia" data-game="${g.id}">${avatar(g, 'xs')}<span>${U.esc(g.name)}</span></a></li>`).join('');
+      } else if (c.type === 'contact') {
+        body = [
+          s.zalo ? `<li>${UI.icon('chat', 16)}<span>Zalo: <b>${U.esc(s.zalo)}</b></span><button class="link-btn" data-copy="zalo" aria-label="Sao chép số Zalo">${UI.icon('copy', 14)}</button></li>` : '',
+          s.phone && s.phone !== s.zalo ? `<li>${UI.icon('phone', 16)}<a href="tel:${U.digits(s.phone)}">${U.esc(s.phone)}</a></li>` : '',
+          s.email ? `<li>${UI.icon('mail', 16)}<a href="mailto:${U.esc(s.email)}">${U.esc(s.email)}</a></li>` : '',
+          s.hours ? `<li>${UI.icon('clock', 16)}<span>${U.esc(s.hours)}</span></li>` : ''
+        ].join('');
+      } else {
+        body = (c.items || []).map(it => {
+          const url = U.channelUrl(it, s);
+          const inner = `${UI.channel(it.icon, 28)}<span class="fl-t"><span>${U.esc(it.name)}</span>${it.desc ? `<small>${U.esc(it.desc)}</small>` : ''}</span>`;
+          return `<li>${url ? `<a class="fl" href="${U.esc(url)}"${/^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ''}>${inner}</a>` : `<span class="fl">${inner}</span>`}</li>`;
+        }).join('');
+      }
+      const el = document.createElement('div');
+      el.className = 'foot foot-col';
+      el.innerHTML = `<h4>${U.esc(c.title)}</h4><ul class="${c.type === 'links' ? 'fl-list' : ''}">${body}</ul>`;
+      grid.appendChild(el);
+    });
+    grid.style.setProperty('--cols', cols.length);
+    const copy = (s.footerCopyright || '').replace(/\{year\}/g, new Date().getFullYear()).replace(/\{site\}/g, s.siteName);
+    $('#footCopy').textContent = copy;
+    $('#footAdmin').hidden = !s.footerAdminLink;
   }
 
   function initScroll() {
@@ -575,7 +645,9 @@
     $('#ddList').addEventListener('click', e => { const o = e.target.closest('.dd-opt'); if (o) selectGame(o.dataset.id); });
     document.addEventListener('click', e => {
       if (DD.open && !e.target.closest('#dd')) closeDD();
-      if ($('#fab').classList.contains('open') && !e.target.closest('#fab')) toggleFab(false);
+      if ($('#qc').classList.contains('open') && !e.target.closest('#qc')) toggleQuick(false);
+      const fg = e.target.closest('#footGrid [data-game]');
+      if (fg) { e.preventDefault(); selectGame(fg.dataset.game); scrollToEl($('#stepper')); }
     });
 
     // Danh mục & sản phẩm
@@ -610,7 +682,7 @@
       const typing = t && (/INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(); }
       else if (e.key === '/' && !typing) { e.preventDefault(); openSearch(); }
-      else if (e.key === 'Escape') { toggleMenu(false); toggleFab(false); if (DD.open) closeDD(true); }
+      else if (e.key === 'Escape') { toggleMenu(false); toggleQuick(false); if (DD.open) closeDD(true); }
     });
 
     // Menu điện thoại
@@ -621,13 +693,13 @@
     mqMobile.addEventListener && mqMobile.addEventListener('change', e => { if (!e.matches) toggleMenu(false); });
 
     // Nút nổi & sao chép
-    $('#fabMain').addEventListener('click', () => toggleFab(!$('#fab').classList.contains('open')));
+    $('#qcTab').addEventListener('click', () => { QC.touched = true; clearTimeout(QC.timer); toggleQuick(!$('#qc').classList.contains('open')); });
+    $('#qc').addEventListener('pointerenter', () => { QC.touched = true; clearTimeout(QC.timer); });
     document.addEventListener('click', async e => {
       const b = e.target.closest('[data-copy]'); if (!b) return;
       const val = D().settings[b.dataset.copy] || '';
       const ok = await U.copy(val);
       UI.toast(ok ? `Đã sao chép ${val}` : 'Không sao chép được', ok ? 'ok' : 'err');
-      toggleFab(false);
     });
 
     // Thanh thông báo
@@ -667,15 +739,15 @@
     renderCats(false); renderProds(false);
     $('#catList').scrollTop = catScroll; $('#prodList').scrollTop = prodScroll;
     $('#detailBody').dataset.state = '';
-    renderDetail(); renderSteps(); renderRecent(); renderFaq(); renderReviews();
+    renderDetail(); renderSteps(); renderRecent(); renderFaq(); renderReviews(); renderFooter(); renderQuick();
   }
 
   function init() {
     UI.hydrate();
-    $('#year').textContent = new Date().getFullYear();
     renderAll();
     bind();
     initScroll();
+    autoQuick();
     Store.on(kind => {
       renderAll();
       if (kind === 'data') UI.toast('Bảng giá vừa được cập nhật', 'info');
