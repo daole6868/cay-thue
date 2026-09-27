@@ -748,6 +748,7 @@
     bind();
     initScroll();
     autoQuick();
+    Store.watch(30000);
     Store.on(kind => {
       renderAll();
       if (kind === 'data') UI.toast('Bảng giá vừa được cập nhật', 'info');
@@ -757,5 +758,5 @@
       setTimeout(() => pick(id), 350);
     }
   }
-  init();
+  Store.ready.then(init);
 })();

@@ -1,0 +1,13 @@
+{
+  "name": "bang-gia-cay-thue",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Website bảng giá cày thuê kèm trang quản trị",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

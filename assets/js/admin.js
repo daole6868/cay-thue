@@ -106,18 +106,21 @@
     setTimeout(() => $('#pw').focus(), 120);
   }
   function bindLogin() {
-    $('#loginForm').addEventListener('submit', e => {
+    $('#loginForm').addEventListener('submit', async e => {
       e.preventDefault();
-      const pw = $('#pw').value;
-      if (Store.checkPassword(pw)) {
-        Store.session.start();
+      const pw = $('#pw').value, btn = $('#loginForm [type="submit"]');
+      let ok = false, msg = '';
+      btn.disabled = true;
+      try { ok = pw ? await Store.auth.login(pw) : false; } catch (err) { msg = err.message; }
+      btn.disabled = false;
+      if (ok) {
         $('#pw').value = ''; $('#pwErr').textContent = '';
         showApp();
         UI.toast('Đăng nhập thành công');
       } else {
         const card = $('.login-card');
         card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
-        $('#pwErr').textContent = pw ? 'Mật khẩu không đúng. Vui lòng thử lại.' : 'Vui lòng nhập mật khẩu.';
+        $('#pwErr').textContent = msg || (pw ? 'Mật khẩu không đúng. Vui lòng thử lại.' : 'Vui lòng nhập mật khẩu.');
         $('#pw').select();
       }
     });
@@ -139,6 +142,7 @@
     updateCounts();
     A.route = '';
     route();
+    Store.views.load().then(() => { if (A.route === 'dashboard' || A.route === 'prods') render(false); });
   }
   function updateCounts() {
     const d = D();
@@ -1123,13 +1127,14 @@
       e.preventDefault();
       const f = e.currentTarget;
       const cur = $('#pwCur', f).value, n1 = $('#pwNew', f).value, n2 = $('#pwNew2', f).value;
-      if (!Store.checkPassword(cur)) return fieldErr(f, 'cur', 'Mật khẩu hiện tại không đúng.');
       if (n1.length < 6) return fieldErr(f, 'new', 'Mật khẩu mới cần ít nhất 6 ký tự.');
       if (n1 !== n2) return fieldErr(f, 'new2', 'Hai mật khẩu chưa khớp.');
-      D().settings.passwordHash = U.hash(n1);
-      Store.save();
-      f.reset();
-      UI.toast('Đã đổi mật khẩu');
+      Store.auth.changePassword(cur, n1).then(() => {
+        f.reset();
+        UI.toast('Đã đổi mật khẩu');
+      }).catch(err => {
+        if (err.field) fieldErr(f, err.field, err.message); else UI.toast(err.message, 'err');
+      });
     });
   }
 
@@ -1388,12 +1393,14 @@
       <section class="panel"><div class="panel-h"><span class="ph-ic">${I('database', 18)}</span><h2>Dữ liệu hiện tại</h2></div>
         <div class="panel-b form-stack">
           <dl class="meta-grid">
-            <div><dt>Nguồn dữ liệu</dt><dd>${Store.hasLocal() ? 'Đã chỉnh sửa, lưu trong trình duyệt này' : 'Dữ liệu gốc trong file data.js'}</dd></div>
+            <div><dt>Nguồn dữ liệu</dt><dd>${Store.mode === 'server' ? 'Máy chủ (file data/db.json trên VPS)' : Store.hasLocal() ? 'Đã chỉnh sửa, lưu trong trình duyệt này' : 'Dữ liệu gốc trong file data.js'}</dd></div>
             <div><dt>Cập nhật lần cuối</dt><dd>${U.dateTime(d.updatedAt)}</dd></div>
             <div><dt>Dung lượng</dt><dd>${(size / 1024).toFixed(1)} KB</dd></div>
             <div><dt>Nội dung</dt><dd>${d.games.length} game · ${d.cats.length} danh mục · ${d.prods.length} sản phẩm</dd></div>
           </dl>
-          <div class="callout">${I('info', 18)}<p>Mọi thay đổi ở trang quản trị được lưu ngay trong trình duyệt bạn đang dùng. Khi đăng web lên mạng, hãy <b>tải file data.js</b> bên dưới và chép đè vào thư mục <code>assets/js/</code> để mọi khách đều thấy bảng giá mới.</p></div>
+          <div class="callout">${I('info', 18)}${Store.mode === 'server'
+            ? '<p>Đang chạy trên máy chủ: mọi thay đổi được lưu ngay lên VPS và khách thấy trong vòng 30 giây. Máy chủ tự sao lưu vào thư mục <code>data/backups</code> (tối đa 10 phút một bản).</p>'
+            : '<p>Đang chạy không có máy chủ: mọi thay đổi chỉ lưu trong trình duyệt bạn đang dùng. Chạy bằng <code>node server.js</code> để lưu chung cho mọi khách, hoặc <b>tải file data.js</b> bên dưới và chép đè vào thư mục <code>assets/js/</code>.</p>'}</div>
         </div></section>
       <div class="grid-2">
         <section class="panel"><div class="panel-h"><span class="ph-ic">${I('download', 18)}</span><h2>Xuất dữ liệu</h2></div>
@@ -1421,7 +1428,7 @@
         UI.toast('Đã tải data.js');
       } else if (act === 'clearviews') {
         const ok = await UI.confirm({ title: 'Xóa thống kê lượt xem?', text: 'Số lượt xem của mọi gói sẽ về 0.', ok: 'Xóa thống kê', danger: true });
-        if (ok) { Store.views.clear(); render(false); UI.toast('Đã xóa thống kê'); }
+        if (ok) { try { await Store.views.clear(); render(false); UI.toast('Đã xóa thống kê'); } catch (err) { UI.toast(err.message, 'err'); } }
       } else if (act === 'reset') {
         const ok = await UI.confirm({ title: 'Khôi phục dữ liệu gốc?', text: 'Mọi game, danh mục, sản phẩm và cài đặt đã sửa trên trình duyệt này sẽ được thay bằng dữ liệu trong data.js. Nên tải bản sao lưu trước.', ok: 'Khôi phục', danger: true });
         if (!ok) return;
@@ -1469,7 +1476,7 @@
     bindLogin();
     bindBulk();
 
-    $('#logoutBtn').addEventListener('click', () => { Store.session.end(); A.sel.clear(); updateBulk(); discardSettings(); showLogin(); UI.toast('Đã đăng xuất', 'info'); });
+    $('#logoutBtn').addEventListener('click', async () => { await Store.auth.logout(); A.sel.clear(); updateBulk(); discardSettings(); showLogin(); UI.toast('Đã đăng xuất', 'info'); });
     $('#menuBtn').addEventListener('click', () => toggleSidebar(true));
     $('#sbScrim').addEventListener('click', () => toggleSidebar(false));
     $('#collapseBtn').addEventListener('click', () => {
@@ -1492,5 +1499,5 @@
 
     if (Store.session.active()) showApp(); else showLogin();
   }
-  init();
+  Store.ready.then(init);
 })();

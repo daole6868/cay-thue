@@ -162,19 +162,84 @@
 
   let cache = null;
   const subs = new Set();
+  const emit = kind => subs.forEach(f => f(kind));
+
+  /* ---------- Chế độ máy chủ (khi chạy bằng server.js trên VPS) ----------
+     - Có server: dữ liệu đọc/ghi qua /api, mọi khách thấy cùng một bảng giá.
+     - Mở file trực tiếp (file://) hoặc không có server: lưu trong trình duyệt như cũ. */
+  let mode = 'local';
+  const srv = { admin: false, defaultPw: false, views: {}, pending: false, timer: null };
+  async function api(method, url, body) {
+    const opt = { method, credentials: 'same-origin', cache: 'no-store', headers: { 'X-Requested-With': 'fetch' } };
+    if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+    const r = await fetch(url, opt);
+    let j = null;
+    try { j = await r.json(); } catch (e) { /* bỏ qua */ }
+    if (!r.ok) throw Object.assign(new Error((j && j.error) || 'Lỗi kết nối máy chủ (' + r.status + ')'), { status: r.status, field: j && j.field });
+    return j || {};
+  }
+  function queuePush() {
+    srv.pending = true;
+    clearTimeout(srv.timer);
+    srv.timer = setTimeout(pushNow, 300);
+  }
+  async function pushNow() {
+    try {
+      const j = await api('PUT', 'api/data', cache);
+      if (j.updatedAt) cache.updatedAt = j.updatedAt;
+      srv.pending = false;
+    } catch (e) {
+      srv.pending = false;
+      if (e.status === 401) { srv.admin = false; emit('session'); UI.toast('Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.', 'err'); }
+      else UI.toast('Chưa lưu được lên máy chủ: ' + e.message, 'err', { ms: 6000 });
+    }
+  }
+  window.addEventListener('beforeunload', e => { if (srv.pending) { e.preventDefault(); e.returnValue = ''; } });
 
   const Store = {
+    get mode() { return mode; },
+    ready: (async () => {
+      if (!/^https?:$/.test(location.protocol)) return;
+      try {
+        const j = await api('GET', 'api/data');
+        if (!j.data) return;
+        mode = 'server';
+        cache = normalize(j.data);
+        srv.admin = !!j.admin;
+        srv.defaultPw = !!j.defaultPassword;
+      } catch (e) { /* không có server: dùng trình duyệt */ }
+    })(),
+    // Trang khách: kiểm tra định kỳ xem admin có cập nhật không
+    watch(ms = 30000) {
+      if (mode !== 'server') return;
+      setInterval(async () => {
+        if (document.hidden || srv.pending) return;
+        try {
+          const v = await api('GET', 'api/version');
+          if (v.updatedAt && cache && v.updatedAt !== cache.updatedAt) {
+            const j = await api('GET', 'api/data');
+            if (srv.pending) return;
+            cache = normalize(j.data);
+            emit('data');
+          }
+        } catch (e) { /* mạng chập chờn: thử lại lần sau */ }
+      }, ms);
+    },
     get() { if (!cache) cache = normalize(ls.get(KEY, null)); return cache; },
     save() {
       const d = Store.get();
       d.updatedAt = Date.now();
+      if (mode === 'server') { queuePush(); return true; }
       const ok = ls.set(KEY, d);
       if (!ok) UI.toast('Không lưu được. Bộ nhớ trình duyệt đầy hoặc bị chặn.', 'err');
       return ok;
     },
     replace(d) { cache = normalize(d); return Store.save(); },
-    reset() { ls.del(KEY); cache = null; },
-    hasLocal() { return ls.get(KEY, null) != null; },
+    reset() {
+      if (mode === 'server') { cache = normalize(clone(window.DEFAULT_DATA)); Store.save(); return; }
+      ls.del(KEY); cache = null;
+    },
+    hasLocal() { return mode === 'server' || ls.get(KEY, null) != null; },
     on(fn) { subs.add(fn); },
     game(id) { return Store.get().games.find(x => x.id === id); },
     cat(id) { return Store.get().cats.find(x => x.id === id); },
@@ -185,11 +250,39 @@
       const g = Store.game(c.gameId); return !!(g && g.visible);
     },
     checkPassword(pw) { const h = Store.get().settings.passwordHash; return h ? U.hash(pw) === h : pw === DEFAULT_PASSWORD; },
-    usingDefaultPassword() { return !Store.get().settings.passwordHash; },
+    usingDefaultPassword() { return mode === 'server' ? srv.defaultPw : !Store.get().settings.passwordHash; },
+    auth: {
+      // Trả về true/false; ném lỗi khi máy chủ từ chối vì lý do khác (vd: sai quá nhiều lần)
+      async login(pw) {
+        if (mode === 'server') {
+          try { const j = await api('POST', 'api/login', { password: pw }); srv.admin = true; srv.defaultPw = !!j.defaultPassword; return true; }
+          catch (e) { if (e.status === 401) return false; throw e; }
+        }
+        if (!Store.checkPassword(pw)) return false;
+        ls.set(K_SESSION, { exp: Date.now() + 8 * 3600e3 });
+        return true;
+      },
+      async logout() {
+        if (mode === 'server') { try { await api('POST', 'api/logout'); } catch (e) { /* bỏ qua */ } srv.admin = false; return; }
+        ls.del(K_SESSION);
+      },
+      // Ném lỗi có .field ('cur' | 'new') khi không đổi được
+      async changePassword(cur, next) {
+        if (next.length < 6) throw Object.assign(new Error('Mật khẩu mới cần ít nhất 6 ký tự.'), { field: 'new' });
+        if (mode === 'server') { await api('POST', 'api/password', { current: cur, next }); srv.defaultPw = false; return; }
+        if (!Store.checkPassword(cur)) throw Object.assign(new Error('Mật khẩu hiện tại không đúng.'), { field: 'cur' });
+        Store.get().settings.passwordHash = U.hash(next);
+        Store.save();
+      }
+    },
     views: {
-      all() { return ls.get(K_VIEWS, {}) || {}; },
-      add(id) { const v = Store.views.all(); v[id] = (v[id] || 0) + 1; ls.set(K_VIEWS, v); },
-      clear() { ls.del(K_VIEWS); }
+      all() { return mode === 'server' ? srv.views : (ls.get(K_VIEWS, {}) || {}); },
+      add(id) {
+        if (mode === 'server') { api('POST', 'api/view', { id }).catch(() => {}); return; }
+        const v = Store.views.all(); v[id] = (v[id] || 0) + 1; ls.set(K_VIEWS, v);
+      },
+      async load() { if (mode === 'server') { try { srv.views = (await api('GET', 'api/views')).views || {}; } catch (e) { /* bỏ qua */ } } },
+      async clear() { if (mode === 'server') { await api('DELETE', 'api/views'); srv.views = {}; return; } ls.del(K_VIEWS); }
     },
     recent: {
       all() { return ls.get(K_RECENT, []) || []; },
@@ -197,17 +290,19 @@
       clear() { ls.del(K_RECENT); }
     },
     session: {
-      active() { const s = ls.get(K_SESSION, null); return !!(s && s.exp > Date.now()); },
-      start() { ls.set(K_SESSION, { exp: Date.now() + 8 * 3600e3 }); },
-      end() { ls.del(K_SESSION); }
+      active() {
+        if (mode === 'server') return srv.admin;
+        const s = ls.get(K_SESSION, null); return !!(s && s.exp > Date.now());
+      }
     }
   };
 
-  // Đồng bộ giữa các tab: sửa ở trang quản trị, trang khách tự cập nhật
+  // Đồng bộ giữa các tab khi chạy không có máy chủ
   window.addEventListener('storage', e => {
-    if (e.key === KEY || e.key === null) { cache = null; subs.forEach(f => f('data')); }
     if (e.key === K_THEME) UI.applyTheme();
-    if (e.key === K_SESSION) subs.forEach(f => f('session'));
+    if (mode === 'server') return;
+    if (e.key === KEY || e.key === null) { cache = null; emit('data'); }
+    if (e.key === K_SESSION) emit('session');
   });
 
   /* ---------- Biểu tượng (SVG nét) ---------- */
