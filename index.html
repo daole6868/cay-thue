@@ -12,14 +12,41 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/site.css">
+  <!--LOOK-->
   <script>
     (function () {
       var r = document.documentElement; r.classList.add('js');
-      try { var t = JSON.parse(localStorage.getItem('ct_theme')); if (t) r.setAttribute('data-theme', t); } catch (e) {}
+      window.__ct_t0 = (window.performance && performance.now()) || 0;
+      var look = {};
+      try { look = JSON.parse(localStorage.getItem('ct_look')) || {}; } catch (e) {}
+      // Khi mở file trực tiếp (không có server chèn sẵn), dùng cài đặt lần trước
+      if (!r.dataset.mode && look.mode) r.dataset.mode = look.mode;
+      if (!r.dataset.served && look.loader) r.classList.add('has-loader');
+      setTimeout(function () { r.classList.remove('has-loader'); }, 6000);
+      try {
+        var t = JSON.parse(localStorage.getItem('ct_theme')) || r.dataset.mode;
+        if (t === 'light' || t === 'dark') r.setAttribute('data-theme', t);
+      } catch (e) {}
     })();
   </script>
 </head>
 <body>
+  <!-- Màn hình tải trang -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <span class="logo-mark ld-mark"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="5"/><path d="M7 12h4M9 10v4"/><path d="M15 11h.01M17.5 13.5h.01" stroke-width="3"/></svg></span>
+    <span class="ld-bar"><i></i></span>
+  </div>
+
+  <!-- Màn hình chào "Vào trang" -->
+  <div class="welcome" id="welcome" hidden>
+    <div class="wc-box">
+      <span class="logo-mark wc-mark"><i data-icon="gamepad" data-size="34"></i></span>
+      <h2 data-bind="siteName"></h2>
+      <p data-bind="tagline"></p>
+      <button class="btn btn-primary btn-lg" id="wcEnter" type="button">Vào trang <i data-icon="arrowRight"></i></button>
+      <span class="wc-note" id="wcNote"><i data-icon="music" data-size="14"></i>Trang có nhạc nền, bấm Vào trang để bật</span>
+    </div>
+  </div>
 
   <!-- Thanh thông báo -->
   <div class="announce" id="announce" hidden>
@@ -317,6 +344,7 @@
       <div class="qc-list" id="qcList"></div>
     </div>
   </div>
+  <button class="music-btn" id="musicBtn" type="button" hidden aria-label="Bật nhạc nền"></button>
   <button class="to-top" id="toTop" aria-label="Lên đầu trang">
     <svg class="ring" viewBox="0 0 46 46" aria-hidden="true"><circle cx="23" cy="23" r="21" id="toTopRing"/></svg>
     <i data-icon="arrowUp" data-size="18"></i>
@@ -336,6 +364,7 @@
 
   <script src="assets/js/data.js"></script>
   <script src="assets/js/core.js"></script>
+  <script src="assets/js/effects.js"></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

@@ -99,13 +99,21 @@ pm2 restart bang-gia
 ```
 Thư mục `data/` không nằm trong git nên **cập nhật code không làm mất bảng giá**.
 
+## Cho phép tải nhạc nền lớn (tới 12 MB)
+Nginx mặc định chỉ nhận file nhỏ. Nếu tải nhạc báo lỗi **413**, mở cấu hình và sửa dòng `client_max_body_size` thành `13m`:
+```bash
+sed -i 's/client_max_body_size .*/client_max_body_size 13m;/' /etc/nginx/sites-available/bang-gia
+grep -q client_max_body_size /etc/nginx/sites-available/bang-gia || sed -i 's/server_name .*/&\n    client_max_body_size 13m;/' /etc/nginx/sites-available/bang-gia
+nginx -t && systemctl reload nginx
+```
+
 ## Dữ liệu và sao lưu
 | File | Nội dung |
 |---|---|
 | `data/db.json` | Toàn bộ game, danh mục, sản phẩm, cài đặt |
 | `data/auth.json` | Mật khẩu quản trị (đã mã hóa) |
 | `data/views.json` | Lượt xem từng gói |
-| `data/uploads/` | Ảnh đã tải lên (ảnh xem trước khi gửi link) |
+| `data/uploads/` | Ảnh và nhạc nền đã tải lên |
 | `data/backups/` | Server tự sao lưu `db.json` trước khi ghi (tối đa 10 phút một bản, giữ 60 bản gần nhất) |
 
 Nên tải bản sao lưu về máy định kỳ: trong **Quản trị › Sao lưu dữ liệu › Tải bản sao lưu (.json)**.

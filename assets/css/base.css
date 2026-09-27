@@ -7,6 +7,9 @@
   /* Màu chủ đạo: được ghi đè bởi Cài đặt > Màu chủ đạo */
   --accent-l: #2f54eb;
   --accent-d: #7b93ff;
+  --accent2-l: #7c4ddb;
+  --accent2-d: #a98bff;
+  --on-accent-l: #ffffff;
 
   --bg: #f3f5fa;
   --bg-2: #eaeef6;
@@ -19,7 +22,8 @@
   --line: #e0e5ef;
   --line-2: #cfd6e4;
   --accent: var(--accent-l);
-  --on-accent: #ffffff;
+  --accent2: var(--accent2-l);
+  --on-accent: var(--on-accent-l);
   --price: #e0452b;
   --ok: #15a34a;
   --warn: #d97706;
@@ -29,6 +33,7 @@
 
   --accent-soft: color-mix(in srgb, var(--accent) 11%, var(--surface));
   --accent-line: color-mix(in srgb, var(--accent) 38%, var(--line));
+  --grad: linear-gradient(135deg, var(--accent), var(--accent2));
   --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 
   --shadow-sm: 0 1px 2px rgba(19, 26, 44, .06);
@@ -63,6 +68,7 @@
     --line: #252e48;
     --line-2: #323c5a;
     --accent: var(--accent-d);
+    --accent2: var(--accent2-d);
     --on-accent: #0b0f1c;
     --price: #ff7a5e;
     --ok: #46d38a;
@@ -87,6 +93,7 @@
   --line: #252e48;
   --line-2: #323c5a;
   --accent: var(--accent-d);
+  --accent2: var(--accent2-d);
   --on-accent: #0b0f1c;
   --price: #ff7a5e;
   --ok: #46d38a;
@@ -174,7 +181,7 @@ kbd {
   width: 36px; height: 36px; flex: none;
   display: grid; place-items: center;
   border-radius: var(--r);
-  background: var(--accent); color: var(--on-accent);
+  background: var(--accent); background-image: var(--grad); color: var(--on-accent);
   box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent) 70%, transparent);
   transition: transform .5s var(--spring);
 }
@@ -198,10 +205,10 @@ kbd {
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn[disabled], .btn.disabled { opacity: .45; pointer-events: none; }
 .btn-primary {
-  background: var(--accent); color: var(--on-accent);
+  background: var(--accent); background-image: var(--grad); color: var(--on-accent);
   box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--accent) 80%, transparent);
 }
-.btn-primary:hover { background: var(--accent); filter: brightness(1.07); box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--accent) 90%, transparent); }
+.btn-primary:hover { background: var(--accent); background-image: var(--grad); filter: brightness(1.07); box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--accent) 90%, transparent); }
 .btn-ghost { background: transparent; border-color: var(--line); }
 .btn-ghost:hover { background: var(--surface-2); border-color: var(--line-2); }
 .btn-soft { background: var(--accent-soft); color: var(--accent); }

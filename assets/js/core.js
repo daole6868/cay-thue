@@ -11,6 +11,17 @@
   const K_THEME = 'ct_theme';
   const K_SESSION = 'ct_admin_session';
   const DEFAULT_PASSWORD = 'admin123';
+  // Giao diện mặc định (Quản trị › Giao diện)
+  const THEME_DEFAULT = {
+    primary: '#2f54eb', secondary: '#7c4ddb', mode: 'system', font: 'Be Vietnam Pro', radius: 12,
+    card: 'solid', hero: 'split', bg: 'none', reveal: 'up',
+    loader: false, welcome: false, music: '', volume: 50, glow: false, tilt: false, pulse: false, motion: true
+  };
+  const FONTS = {
+    'Be Vietnam Pro': '400;500;600;700;800', 'Lexend': '400;500;600;700;800', 'Nunito': '400;500;600;700;800',
+    'Montserrat': '400;500;600;700;800', 'Quicksand': '400;500;600;700', 'Mulish': '400;500;600;700;800',
+    'Roboto': '400;500;700;900', 'Baloo 2': '400;500;600;700;800'
+  };
   const OLD_NOTES = 'Không đăng nhập tài khoản trong thời gian cày.\nGiá có thể thay đổi theo mùa giải.\nLiên hệ trước khi chuyển khoản để xác nhận lịch.';
 
   /* ---------- localStorage an toàn ---------- */
@@ -117,6 +128,21 @@
       if (item.icon === 'email') return s.email || '';
       return '';
     },
+    rgb(hex) {
+      let h = String(hex || '').trim().replace('#', '');
+      if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      if (!/^[0-9a-f]{6}$/i.test(h)) return [47, 84, 235];
+      return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+    },
+    mix(a, b, t) {
+      const x = U.rgb(a), y = U.rgb(b);
+      return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+    },
+    lum(hex) {
+      const c = U.rgb(hex).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); });
+      return .2126 * c[0] + .7152 * c[1] + .0722 * c[2];
+    },
+    rgba(hex, a) { const c = U.rgb(hex); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; },
     moneyMask(inp) {
       const d = U.parseNum(inp.value);
       inp.value = d ? U.num(d) : '';
@@ -151,6 +177,8 @@
         { id: 'q3', icon: 'phone', name: 'Gọi điện', desc: '', url: '', visible: true }
       ]
     };
+    const acc = { cobalt: '#2f54eb', violet: '#7038d9', teal: '#0b8a82', emerald: '#15803d', orange: '#d9560b', rose: '#d61f59' };
+    settings.theme = Object.assign({}, THEME_DEFAULT, { primary: acc[settings.accent] || THEME_DEFAULT.primary }, def.settings.theme || {}, (d.settings && d.settings.theme) || {});
     return {
       version: 1,
       updatedAt: d.updatedAt || def.updatedAt || Date.now(),
@@ -242,7 +270,7 @@
     // Tải ảnh lên máy chủ, trả về đường dẫn dạng uploads/xxxx.png
     async upload(file) {
       if (mode !== 'server') throw new Error('Tải ảnh chỉ dùng được khi web chạy trên máy chủ (server.js).');
-      if (file.size > 5 * 1024 * 1024) throw new Error('Ảnh quá lớn, tối đa 5 MB.');
+      if (file.size > 12 * 1024 * 1024) throw new Error('File quá lớn, tối đa 12 MB.');
       const r = await fetch('api/upload', { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch', 'Content-Type': file.type || 'application/octet-stream' }, body: file });
       let j = null; try { j = await r.json(); } catch (e) { /* bỏ qua */ }
       if (!r.ok) throw new Error((j && j.error) || 'Tải ảnh thất bại (' + r.status + ')');
@@ -378,7 +406,11 @@
     layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18M9 15v6M15 15v6"/>',
     columns: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
-    send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>'
+    send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+    sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8"/>',
+    upload2: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/>'
   };
 
   /* ---------- Biểu tượng kênh liên hệ (nền màu, hình trắng) ---------- */
@@ -507,7 +539,8 @@
         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     },
     applyTheme() {
-      const t = ls.get(K_THEME, null);
+      const r = document.documentElement;
+      const t = ls.get(K_THEME, null) || (/^(light|dark)$/.test(r.dataset.mode || '') ? r.dataset.mode : null);
       if (t) document.documentElement.setAttribute('data-theme', t);
       else document.documentElement.removeAttribute('data-theme');
       document.dispatchEvent(new CustomEvent('themechange'));
@@ -519,6 +552,33 @@
       ls.set(K_THEME, next);
       UI.applyTheme();
       setTimeout(() => r.classList.remove('theme-anim'), 500);
+    },
+    THEME_DEFAULT, FONTS,
+    // Áp giao diện: màu chính/phụ, phông, bo góc, kiểu thẻ, bố cục, chế độ mặc định
+    applyLook(settings) {
+      const t = Object.assign({}, THEME_DEFAULT, (settings && settings.theme) || {});
+      const r = document.documentElement, st = r.style;
+      const p = t.primary, q = t.secondary;
+      st.setProperty('--accent-l', p);
+      st.setProperty('--accent-d', U.mix(p, '#ffffff', U.lum(p) < .08 ? .42 : .28));
+      st.setProperty('--accent2-l', q);
+      st.setProperty('--accent2-d', U.mix(q, '#ffffff', U.lum(q) < .08 ? .42 : .28));
+      st.setProperty('--on-accent-l', U.lum(p) > .5 ? '#10131c' : '#ffffff');
+      const rad = Math.max(0, Math.min(28, Number(t.radius) || 0));
+      st.setProperty('--r', rad + 'px');
+      st.setProperty('--r-sm', Math.round(rad * .67) + 'px');
+      st.setProperty('--r-lg', Math.round(rad * 1.34) + 'px');
+      const font = FONTS[t.font] ? t.font : 'Be Vietnam Pro';
+      st.setProperty('--font', `"${font}", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`);
+      if (font !== 'Be Vietnam Pro') {
+        let link = document.getElementById('ct-font');
+        const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font).replace(/%20/g, '+')}:wght@${FONTS[font]}&display=swap`;
+        if (!link) { link = document.createElement('link'); link.id = 'ct-font'; link.rel = 'stylesheet'; document.head.appendChild(link); }
+        if (link.href !== href) link.href = href;
+      }
+      r.dataset.card = t.card; r.dataset.hero = t.hero; r.dataset.reveal = t.reveal; r.dataset.mode = t.mode;
+      UI.applyTheme();
+      ls.set('ct_look', { mode: t.mode, loader: !!t.loader });
     },
     applyAccent(key) {
       const a = ACCENTS[key] || ACCENTS.cobalt;

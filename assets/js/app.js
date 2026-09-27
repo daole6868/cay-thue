@@ -60,7 +60,8 @@
     setStat('#statBoosters', s.statBoosters, 0, '');
     setStat('#statRating', s.statRating, 1, '/5');
     applyLinks();
-    UI.applyAccent(s.accent);
+    UI.applyLook(s);
+    if (window.CTFX) window.CTFX.apply(s);
 
     // Thanh thông báo
     let closed = '';
@@ -771,6 +772,7 @@
     bind();
     initScroll();
     autoQuick();
+    if (window.CTFX) { window.CTFX.boot(); window.CTFX.hideLoader(); }
     Store.watch(30000);
     Store.on(kind => {
       renderAll();

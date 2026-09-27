@@ -13,7 +13,12 @@
   <script>
     (function () {
       var r = document.documentElement;
-      try { var t = JSON.parse(localStorage.getItem('ct_theme')); if (t) r.setAttribute('data-theme', t); } catch (e) {}
+      try {
+        var look = JSON.parse(localStorage.getItem('ct_look')) || {};
+        if (look.mode) r.dataset.mode = look.mode;
+        var t = JSON.parse(localStorage.getItem('ct_theme')) || look.mode;
+        if (t === 'light' || t === 'dark') r.setAttribute('data-theme', t);
+      } catch (e) {}
       try { if (JSON.parse(localStorage.getItem('ct_sb_collapsed'))) r.classList.add('sb-collapsed'); } catch (e) {}
     })();
   </script>

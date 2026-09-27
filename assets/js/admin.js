@@ -23,6 +23,7 @@
     content: { t: 'Hỏi đáp & đánh giá', i: 'help', r: vContent },
     footer: { t: 'Chân trang', i: 'layout', r: vFooter },
     quick: { t: 'Liên hệ nhanh', i: 'headset', r: vQuick },
+    look: { t: 'Giao diện', i: 'palette', r: vLook },
     settings: { t: 'Cài đặt', i: 'sliders', r: vSettings },
     backup: { t: 'Sao lưu dữ liệu', i: 'database', r: vBackup }
   };
@@ -173,6 +174,7 @@
       discardSettings();
     }
     if (key !== A.route) A.sel.clear();
+    if (key !== 'look') stopTest();
     const changed = key !== A.route;
     A.route = key;
     $$('.sb-link[data-r]').forEach(a => a.classList.toggle('active', a.dataset.r === key));
@@ -1070,7 +1072,7 @@
   ];
 
   function setDirty(v) { A.dirty = v; const b = $('#saveBar'); if (b) b.classList.toggle('show', v); }
-  function discardSettings() { A.draft = null; A.dirty = false; UI.applyAccent(D().settings.accent); }
+  function discardSettings() { A.draft = null; A.dirty = false; UI.applyLook(D().settings); }
   function saveSettings() {
     const d = D();
     const hash = d.settings.passwordHash;
@@ -1109,9 +1111,8 @@
           </div>
         </div></section>
       ${SF.map(sec => `<section class="panel"><div class="panel-h"><span class="ph-ic">${I(sec.i, 18)}</span><h2>${sec.t}</h2></div><div class="panel-b form-stack">${sec.f.map(field).join('')}</div></section>`).join('')}
-      <section class="panel"><div class="panel-h"><span class="ph-ic">${I('palette', 18)}</span><h2>Màu chủ đạo</h2></div>
-        <div class="panel-b form-stack"><div class="accents">${Object.entries(UI.ACCENTS).map(([k, a]) => `<button type="button" class="acc${s.accent === k ? ' on' : ''}" data-acc="${k}" style="--c:${a.l}"><span class="acc-sw">${I('check', 16)}</span><span>${a.name}</span></button>`).join('')}</div>
-        <p class="hint">Áp dụng cho nút, liên kết và điểm nhấn trên cả trang khách lẫn trang quản trị. Bấm để xem trước, nhớ bấm Lưu.</p></div></section>
+      <section class="panel"><div class="panel-h"><span class="ph-ic">${I('palette', 18)}</span><h2>Màu sắc & hiệu ứng</h2></div>
+        <div class="panel-b form-stack"><p class="muted">Màu, phông chữ, bo góc và các hiệu ứng đã chuyển sang mục riêng.</p><div><a class="btn btn-soft" href="#look">${I('palette', 16)}Mở mục Giao diện</a></div></div></section>
       <section class="panel"><div class="panel-h"><span class="ph-ic">${I('key', 18)}</span><h2>Đổi mật khẩu quản trị</h2></div>
         <form class="panel-b form-stack" id="pwForm" novalidate>
           <div class="field"><label for="pwCur">Mật khẩu hiện tại</label><input class="input" id="pwCur" type="password" autocomplete="current-password"><span class="err" data-err="cur"></span></div>
@@ -1156,12 +1157,6 @@
     });
     v.onclick = e => {
       if (e.target.closest('[data-act="seo-clear"]')) { s.seoImage = ''; $('#s-seoImage', v).value = ''; setDirty(true); ogPreview(); return; }
-      const a = e.target.closest('[data-acc]');
-      if (a) {
-        s.accent = a.dataset.acc; UI.applyAccent(s.accent);
-        $$('.acc', v).forEach(x => x.classList.toggle('on', x === a));
-        setDirty(true); return;
-      }
       const b = e.target.closest('[data-act]'); if (!b) return;
       if (b.dataset.act === 'save') saveSettings();
       if (b.dataset.act === 'undo') { discardSettings(); render(false); UI.toast('Đã hoàn tác thay đổi', 'info'); }
@@ -1184,7 +1179,7 @@
   /* =========================================================
      BẢN NHÁP DÙNG CHUNG (Cài đặt, Chân trang, Liên hệ nhanh)
      ========================================================= */
-  const DRAFT_ROUTES = ['settings', 'footer', 'quick'];
+  const DRAFT_ROUTES = ['settings', 'footer', 'quick', 'look'];
   const saveBar = () => `<div class="savebar${A.dirty ? ' show' : ''}" id="saveBar">
       <span>${I('info', 16)}Bạn có thay đổi chưa lưu</span>
       <button class="btn btn-sm" type="button" data-act="undo">Hoàn tác</button>
@@ -1427,6 +1422,134 @@
   }
 
   /* =========================================================
+     GIAO DIỆN (màu, kiểu dáng, hiệu ứng)
+     ========================================================= */
+  const PRESETS = [
+    ['Tím Neon', '#7c5cff', '#38bdf8'], ['Hoàng hôn', '#f97316', '#ec4899'], ['Rừng xanh', '#16a34a', '#84cc16'], ['Đại dương', '#2563eb', '#06b6d4'],
+    ['Hồng Pastel', '#ec4899', '#a78bfa'], ['Vàng Sang', '#f59e0b', '#ef4444'], ['Chàm', '#4f46e5', '#7c3aed'], ['Bạc hà', '#14b8a6', '#6366f1']
+  ];
+  const BG_OPTS = [['particles', 'Mạng hạt kết nối'], ['stars', 'Bầu trời sao'], ['waves', 'Sóng âm'], ['grid', 'Lưới kỹ thuật + vạch quét'], ['bokeh', 'Đèn neon nhòe (bokeh)'], ['snow', 'Tuyết rơi'], ['bubbles', 'Bong bóng'], ['none', 'Không có']];
+  const REVEAL_OPTS = [['up', 'Trượt lên mờ dần'], ['zoom', 'Phóng to'], ['side', 'Trượt ngang'], ['blur', 'Làm rõ từ mờ'], ['flip', 'Lật 3D'], ['none', 'Không hiệu ứng']];
+  let testAudio = null;
+  function stopTest() { if (testAudio) { testAudio.pause(); testAudio = null; } }
+
+  function vLook(v) {
+    stopTest();
+    if (!A.draft) A.draft = U.clone(D().settings);
+    const s = A.draft;
+    s.theme = Object.assign({}, UI.THEME_DEFAULT, s.theme || {});
+    const t = s.theme, server = Store.mode === 'server';
+    const opt = (list, cur) => list.map(([k, l]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${l}</option>`).join('');
+    const tg = (k, title, sub) => `<label class="switch-card"><span><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span>${sw(t[k], `data-t="${k}"`)}</label>`;
+    const colorField = (k, label) => `<div class="field"><label for="lk-${k}">${label}</label><div class="color-row">
+        <label class="color-sw" style="--c:${U.esc(t[k])}" title="Chọn màu"><input type="color" id="lk-${k}c" value="${U.esc(t[k])}" data-t="${k}" aria-label="${label}"></label>
+        <input class="input mono" id="lk-${k}" value="${U.esc(t[k])}" data-t="${k}" maxlength="7" spellcheck="false"></div></div>`;
+    v.innerHTML = `<div class="look-grid">
+      <div class="look-col">
+        <section class="panel"><div class="panel-h"><span class="ph-ic">${I('palette', 18)}</span><div><h2>Bảng màu mẫu</h2><p class="muted small">Chọn nhanh một cặp màu hài hoà</p></div></div>
+          <div class="panel-b"><div class="presets" id="lkPresets">${PRESETS.map(([n, a, b]) => `<button type="button" class="preset" data-p="${a}|${b}"><span class="pz" style="background:linear-gradient(90deg,${a},${b})"></span><span>${n}</span></button>`).join('')}</div></div></section>
+        <section class="panel"><div class="panel-h"><span class="ph-ic">${I('sliders', 18)}</span><h2>Màu & kiểu dáng</h2></div>
+          <div class="panel-b form-grid">
+            ${colorField('primary', 'Màu chính')}${colorField('secondary', 'Màu phụ')}
+            <div class="field"><label for="lk-mode">Chế độ mặc định</label><select class="select" id="lk-mode" data-t="mode">${opt([['system', 'Theo máy của khách'], ['light', 'Sáng'], ['dark', 'Tối']], t.mode)}</select><span class="hint">Khách vẫn tự đổi được bằng nút sáng/tối.</span></div>
+            <div class="field"><label for="lk-font">Phông chữ</label><select class="select" id="lk-font" data-t="font">${Object.keys(UI.FONTS).map(f => `<option value="${f}" ${f === t.font ? 'selected' : ''}>${f}${f === 'Be Vietnam Pro' ? ' (khuyên dùng)' : ''}</option>`).join('')}</select><span class="hint">Tất cả đều hỗ trợ tiếng Việt.</span></div>
+            <div class="field full"><label for="lk-radius">Độ bo góc</label><div class="range-row"><input type="range" id="lk-radius" min="0" max="24" step="1" value="${Number(t.radius) || 0}" data-t="radius"><b id="lkRadV">${Number(t.radius) || 0}px</b></div></div>
+            <div class="field"><label for="lk-card">Kiểu thẻ</label><select class="select" id="lk-card" data-t="card">${opt([['glass', 'Kính mờ (glass)'], ['solid', 'Nền đặc'], ['outline', 'Viền mảnh']], t.card)}</select></div>
+            <div class="field"><label for="lk-hero">Bố cục phần đầu</label><select class="select" id="lk-hero" data-t="hero">${opt([['split', 'Chia 2 cột + thẻ gói nổi bật'], ['center', 'Căn giữa tối giản']], t.hero)}</select></div>
+          </div></section>
+      </div>
+      <div class="look-col">
+        <section class="panel"><div class="panel-h"><span class="ph-ic">${I('eye', 18)}</span><div><h2>Xem trước</h2><p class="muted small">Cập nhật ngay khi bạn chỉnh</p></div></div>
+          <div class="panel-b"><div class="lk-prev" id="lkPrev"></div></div></section>
+        <section class="panel"><div class="panel-h"><span class="ph-ic">${I('sparkle', 18)}</span><h2>Hiệu ứng</h2></div>
+          <div class="panel-b form-stack">
+            <div class="form-grid">
+              <div class="field"><label for="lk-bg">Hiệu ứng nền</label><select class="select" id="lk-bg" data-t="bg">${opt(BG_OPTS, t.bg)}</select></div>
+              <div class="field"><label for="lk-reveal">Kiểu xuất hiện khi cuộn</label><select class="select" id="lk-reveal" data-t="reveal">${opt(REVEAL_OPTS, t.reveal)}</select></div>
+            </div>
+            ${tg('loader', 'Màn hình tải trang', 'Logo xoay khi mở trang')}
+            ${tg('welcome', 'Màn hình chào “Vào trang”', 'Khách bấm Vào trang → nhạc nền tự phát')}
+            <div class="music-box">
+              <div class="field"><label for="lk-music">Nhạc nền</label><input class="input" id="lk-music" data-t="music" value="${U.esc(t.music)}" placeholder="${server ? 'Bấm Tải nhạc lên, hoặc dán link file .mp3' : 'Dán link file nhạc .mp3'}">
+                <span class="hint">MP3, M4A, OGG, tối đa 12 MB. Có nhạc thì góc trái trang khách hiện nút bật/tắt nhạc.</span></div>
+              <div class="toolbar">
+                <label class="btn btn-ghost btn-sm${server ? '' : ' disabled'}" title="${server ? 'Chọn file nhạc từ máy' : 'Chỉ dùng được khi chạy trên máy chủ'}">${I('upload', 15)}<span id="lkUpTxt">Tải nhạc lên</span><input type="file" id="lkMusicFile" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,.mp3,.m4a,.ogg,.wav" hidden ${server ? '' : 'disabled'}></label>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="music-test">${I('music', 15)}<span id="lkTestTxt">Nghe thử</span></button>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="music-clear">${I('trash', 15)}Bỏ nhạc</button>
+              </div>
+              <div class="field"><label for="lk-vol">Âm lượng</label><div class="range-row"><input type="range" id="lk-vol" min="0" max="100" step="5" value="${Number(t.volume) || 0}" data-t="volume"><b id="lkVolV">${Number(t.volume) || 0}%</b></div></div>
+            </div>
+            ${tg('glow', 'Vầng sáng theo chuột', '')}
+            ${tg('tilt', 'Thẻ nghiêng 3D khi rê chuột', '')}
+            ${tg('pulse', 'Nền “nhún” theo nhạc', 'Hình nền đập theo nhịp nhạc (với nhạc tải lên máy chủ)')}
+            ${tg('motion', 'Bật chuyển động trang trí', 'Tắt nếu muốn trang tĩnh, nhẹ hơn')}
+            <p class="hint">Vầng sáng và thẻ nghiêng chỉ có trên máy tính. Máy khách bật chế độ “giảm chuyển động” sẽ tự tắt hiệu ứng.</p>
+          </div></section>
+      </div>
+    </div>${saveBar()}`;
+
+    const rich = txt => U.esc(txt || '').replace(/\*(.+?)\*/g, '<span class="lp-hl">$1</span>');
+    const sample = D().prods.find(p => Store.isPublic(p) && p.badge === 'hot') || D().prods[0];
+    const preview = () => {
+      const p = $('#lkPrev', v), r = Number(t.radius) || 0;
+      p.style.cssText = `--pa:${t.primary};--pb:${t.secondary};--pon:${U.lum(t.primary) > .5 ? '#10131c' : '#fff'};--pr:${r}px;--prl:${Math.round(r * 1.34)}px;font-family:"${t.font}",system-ui,sans-serif`;
+      p.dataset.card = t.card; p.dataset.hero = t.hero;
+      const title = /\*/.test(s.heroTitle || '') ? rich(s.heroTitle) : `${U.esc(s.heroTitle || s.siteName)} <span class="lp-hl">uy tín · an toàn</span>`;
+      p.innerHTML = `<span class="lp-blob" aria-hidden="true"></span><h3>${title}</h3><p>${U.esc(s.heroText || '')}</p>
+        <div class="lp-cta"><span class="lp-btn">Xem bảng giá</span><span class="lp-btn2">Tư vấn qua Zalo</span></div>
+        ${sample ? `<div class="lp-card"><span class="lp-ic">${I('gamepad', 20)}</span><div><b>${U.esc(sample.name)}</b><small>Từ ${U.fmt(sample.price)}</small></div></div>` : ''}`;
+      $$('.preset', v).forEach(b => b.classList.toggle('on', b.dataset.p === `${t.primary}|${t.secondary}`.toLowerCase()));
+    };
+    const setColor = (k, val) => {
+      t[k] = val.toLowerCase();
+      $(`#lk-${k}`, v).value = t[k]; $(`#lk-${k}c`, v).value = t[k];
+      $(`#lk-${k}c`, v).parentElement.style.setProperty('--c', t[k]);
+    };
+    const changed = () => { setDirty(true); UI.applyLook(s); preview(); };
+    preview();
+
+    const onField = e => {
+      const el = e.target, k = el.dataset.t; if (!k) return;
+      if (k === 'primary' || k === 'secondary') {
+        if (!/^#[0-9a-f]{6}$/i.test(el.value)) return;
+        setColor(k, el.value);
+        return changed();
+      }
+      t[k] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? Number(el.value) : el.value;
+      if (k === 'radius') $('#lkRadV', v).textContent = t[k] + 'px';
+      if (k === 'volume') { $('#lkVolV', v).textContent = t[k] + '%'; if (testAudio) testAudio.volume = t[k] / 100; }
+      if (k === 'music') stopTest();
+      changed();
+    };
+    v.oninput = onField; v.onchange = onField;
+    $('#lkMusicFile', v).addEventListener('change', async e => {
+      const f = e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      const txt = $('#lkUpTxt', v); txt.textContent = 'Đang tải…';
+      try {
+        const pth = await Store.upload(f);
+        stopTest(); t.music = pth; $('#lk-music', v).value = pth;
+        changed(); UI.toast('Đã tải nhạc lên. Bấm Lưu thay đổi để áp dụng.');
+      } catch (err) { UI.toast(err.message, 'err'); }
+      txt.textContent = 'Tải nhạc lên';
+    });
+    v.onclick = e => {
+      if (draftBarClick(e)) { stopTest(); return; }
+      const pr = e.target.closest('.preset');
+      if (pr) { const [a, b] = pr.dataset.p.split('|'); setColor('primary', a); setColor('secondary', b); return changed(); }
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      if (b.dataset.act === 'music-clear') { stopTest(); t.music = ''; $('#lk-music', v).value = ''; changed(); }
+      if (b.dataset.act === 'music-test') {
+        if (testAudio) { stopTest(); $('#lkTestTxt', v).textContent = 'Nghe thử'; return; }
+        if (!t.music) { UI.toast('Chưa có nhạc nền để nghe thử.', 'info'); return; }
+        testAudio = new Audio(t.music); testAudio.volume = (Number(t.volume) || 0) / 100;
+        testAudio.play().then(() => { $('#lkTestTxt', v).textContent = 'Dừng'; }).catch(() => { UI.toast('Không phát được file nhạc này.', 'err'); testAudio = null; });
+        testAudio.addEventListener('ended', () => { testAudio = null; const x = $('#lkTestTxt', v); if (x) x.textContent = 'Nghe thử'; });
+      }
+    };
+  }
+
+  /* =========================================================
      SAO LƯU
      ========================================================= */
   function vBackup(v) {
@@ -1477,7 +1600,7 @@
         if (!ok) return;
         const snap = snapshot();
         Store.reset(); Store.get(); A.sel.clear();
-        UI.applyAccent(D().settings.accent);
+        UI.applyLook(D().settings);
         updateCounts(); render(false);
         UI.toast('Đã khôi phục dữ liệu gốc', 'ok', { action: 'Hoàn tác', onAction: () => undo(snap) });
       }
@@ -1504,7 +1627,7 @@
     if (!ok) return;
     const snap = snapshot();
     Store.replace(data); A.sel.clear(); A.draft = null;
-    UI.applyAccent(D().settings.accent);
+    UI.applyLook(D().settings);
     updateCounts(); render(false);
     UI.toast('Đã nhập dữ liệu', 'ok', { action: 'Hoàn tác', onAction: () => undo(snap) });
   }
@@ -1514,7 +1637,7 @@
      ========================================================= */
   function init() {
     UI.hydrate();
-    UI.applyAccent(D().settings.accent);
+    UI.applyLook(D().settings);
     UI.themeButton($('#themeBtn'));
     bindLogin();
     bindBulk();

@@ -28,7 +28,7 @@ const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
 const VIEWS_FILE = path.join(DATA_DIR, 'views.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
-const MAX_UPLOAD = 5 * 1024 * 1024;
+const MAX_UPLOAD = 12 * 1024 * 1024;
 const SESSION_HOURS = 12;
 const MAX_BODY = 5 * 1024 * 1024;
 const MAX_BACKUPS = 60;
@@ -177,7 +177,7 @@ function readRaw(req, limit) {
     let size = 0; const chunks = [];
     req.on('data', c => {
       size += c.length;
-      if (size > limit) { reject(Object.assign(new Error('Ảnh quá lớn (tối đa 5 MB)'), { status: 413 })); req.destroy(); return; }
+      if (size > limit) { reject(Object.assign(new Error('File quá lớn (tối đa 12 MB)'), { status: 413 })); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => resolve(Buffer.concat(chunks)));
@@ -191,6 +191,14 @@ function imageExt(b) {
   if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return '.jpg';
   if (b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return '.webp';
   if (b.toString('ascii', 0, 4) === 'GIF8') return '.gif';
+  return '';
+}
+function audioExt(b) {
+  if (b.length < 12) return '';
+  if (b.toString('ascii', 0, 3) === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return '.mp3';
+  if (b.toString('ascii', 4, 8) === 'ftyp') return '.m4a';
+  if (b.toString('ascii', 0, 4) === 'OggS') return '.ogg';
+  if (b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WAVE') return '.wav';
   return '';
 }
 
@@ -221,10 +229,43 @@ function seoTags(req) {
   if (img) t.push(`<meta property="og:image" content="${escAttr(img)}">`, `<meta property="og:image:alt" content="${escAttr(title)}">`, `<meta name="twitter:image" content="${escAttr(img)}">`);
   return t.join('\n  ');
 }
+/* ---------- Giao diện chèn sẵn vào trang (tránh nháy màu khi tải) ---------- */
+const FONTS = { 'Be Vietnam Pro': '400;500;600;700;800', 'Lexend': '400;500;600;700;800', 'Nunito': '400;500;600;700;800', 'Montserrat': '400;500;600;700;800', 'Quicksand': '400;500;600;700', 'Mulish': '400;500;600;700;800', 'Roboto': '400;500;700;900', 'Baloo 2': '400;500;600;700;800' };
+const isHex = v => /^#[0-9a-f]{6}$/i.test(String(v || ''));
+const rgbOf = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mixHex = (a, b, t) => '#' + rgbOf(a).map((v, i) => Math.round(v + (rgbOf(b)[i] - v) * t).toString(16).padStart(2, '0')).join('');
+const lumOf = h => { const c = rgbOf(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+function lookInject(html) {
+  const t = (db.settings && db.settings.theme) || {};
+  const pick = (v, list, d) => (list.includes(v) ? v : d);
+  const p = isHex(t.primary) ? t.primary : '#2f54eb', q = isHex(t.secondary) ? t.secondary : '#7c4ddb';
+  const rad = Math.max(0, Math.min(28, Number(t.radius ?? 12) || 0));
+  const font = FONTS[t.font] ? t.font : 'Be Vietnam Pro';
+  const vars = [
+    `--accent-l:${p}`, `--accent-d:${mixHex(p, '#ffffff', lumOf(p) < .08 ? .42 : .28)}`,
+    `--accent2-l:${q}`, `--accent2-d:${mixHex(q, '#ffffff', lumOf(q) < .08 ? .42 : .28)}`,
+    `--on-accent-l:${lumOf(p) > .5 ? '#10131c' : '#ffffff'}`,
+    `--r:${rad}px`, `--r-sm:${Math.round(rad * .67)}px`, `--r-lg:${Math.round(rad * 1.34)}px`,
+    `--font:"${font}", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`
+  ].join(';');
+  const attrs = [
+    'lang="vi"', 'data-served="1"',
+    `data-mode="${pick(t.mode, ['system', 'light', 'dark'], 'system')}"`,
+    `data-card="${pick(t.card, ['solid', 'glass', 'outline'], 'solid')}"`,
+    `data-hero="${pick(t.hero, ['split', 'center'], 'split')}"`,
+    `data-reveal="${pick(t.reveal, ['up', 'zoom', 'side', 'blur', 'flip', 'none'], 'up')}"`,
+    t.loader ? 'class="has-loader"' : '',
+    `style="${escAttr(vars)}"`
+  ].filter(Boolean).join(' ');
+  html = html.replace('<html lang="vi">', `<html ${attrs}>`);
+  const link = font === 'Be Vietnam Pro' ? '' : `<link rel="stylesheet" id="ct-font" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(font).replace(/%20/g, '+')}:wght@${FONTS[font]}&display=swap">`;
+  return html.replace('<!--LOOK-->', link);
+}
 function serveIndex(req, res) {
   fs.readFile(path.join(ROOT, 'index.html'), 'utf8', (err, html) => {
     if (err) return notFound(res);
     html = html.replace(/<!--SEO-->[\s\S]*?<!--\/SEO-->/, seoTags(req));
+    html = lookInject(html);
     const headers = { ...SEC_HEADERS, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' };
     let body = Buffer.from(html);
     if (/\bgzip\b/.test(req.headers['accept-encoding'] || '')) { body = zlib.gzipSync(body); headers['Content-Encoding'] = 'gzip'; headers.Vary = 'Accept-Encoding'; }
@@ -233,11 +274,23 @@ function serveIndex(req, res) {
   });
 }
 function serveUpload(req, res, name) {
-  if (!/^[a-f0-9]{16}\.(png|jpg|webp|gif)$/.test(name)) return notFound(res);
+  if (!/^[a-f0-9]{16}\.(png|jpg|webp|gif|mp3|m4a|ogg|wav)$/.test(name)) return notFound(res);
   const file = path.join(UPLOAD_DIR, name);
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) return notFound(res);
-    res.writeHead(200, { ...SEC_HEADERS, 'Content-Type': MIME[path.extname(name)], 'Content-Length': st.size, 'Cache-Control': 'public, max-age=31536000, immutable' });
+    const headers = { ...SEC_HEADERS, 'Content-Type': MIME[path.extname(name)], 'Accept-Ranges': 'bytes', 'Cache-Control': 'public, max-age=31536000, immutable' };
+    // Hỗ trợ tải từng đoạn (trình duyệt cần khi phát nhạc)
+    const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (m && (m[1] || m[2])) {
+      let start = m[1] ? parseInt(m[1], 10) : st.size - parseInt(m[2], 10);
+      let end = m[1] && m[2] ? parseInt(m[2], 10) : st.size - 1;
+      if (isNaN(start) || start < 0 || start >= st.size || end < start) { res.writeHead(416, { 'Content-Range': `bytes */${st.size}` }); return res.end(); }
+      end = Math.min(end, st.size - 1);
+      res.writeHead(206, { ...headers, 'Content-Range': `bytes ${start}-${end}/${st.size}`, 'Content-Length': end - start + 1 });
+      if (req.method === 'HEAD') return res.end();
+      return fs.createReadStream(file, { start, end }).pipe(res);
+    }
+    res.writeHead(200, { ...headers, 'Content-Length': st.size });
     if (req.method === 'HEAD') return res.end();
     fs.createReadStream(file).pipe(res);
   });
@@ -305,8 +358,8 @@ async function handleApi(req, res, route) {
   }
   if (route === 'upload' && m === 'POST') {
     const buf = await readRaw(req, MAX_UPLOAD);
-    const ext = imageExt(buf);
-    if (!ext) return sendJSON(res, 400, { error: 'Chỉ nhận ảnh PNG, JPG, WEBP hoặc GIF.' });
+    const ext = imageExt(buf) || audioExt(buf);
+    if (!ext) return sendJSON(res, 400, { error: 'Chỉ nhận ảnh (PNG, JPG, WEBP, GIF) hoặc nhạc (MP3, M4A, OGG, WAV).' });
     const name = crypto.randomBytes(8).toString('hex') + ext;
     fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
     log('Đã tải ảnh lên:', name);
@@ -335,7 +388,8 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.woff2': 'font/woff2',
-  '.woff': 'font/woff', '.txt': 'text/plain; charset=utf-8'
+  '.woff': 'font/woff', '.txt': 'text/plain; charset=utf-8',
+  '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.wav': 'audio/wav'
 };
 const COMPRESS = new Set(['.html', '.css', '.js', '.json', '.svg', '.txt']);
 
