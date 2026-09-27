@@ -52,7 +52,7 @@
 
   function renderBrand() {
     const s = D().settings;
-    document.title = `${s.siteName} · ${s.tagline}`;
+    document.title = (s.seoTitle || '').trim() || [s.siteName, s.tagline].filter(Boolean).join(' – ');
     $$('[data-bind]').forEach(el => { el.textContent = s[el.dataset.bind] ?? ''; });
     $('#heroTitle').innerHTML = richTitle(s.heroTitle);
     $('#updated').textContent = 'Bảng giá cập nhật ' + U.date(D().updatedAt);

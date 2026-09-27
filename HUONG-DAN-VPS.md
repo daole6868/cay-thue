@@ -105,6 +105,7 @@ Thư mục `data/` không nằm trong git nên **cập nhật code không làm m
 | `data/db.json` | Toàn bộ game, danh mục, sản phẩm, cài đặt |
 | `data/auth.json` | Mật khẩu quản trị (đã mã hóa) |
 | `data/views.json` | Lượt xem từng gói |
+| `data/uploads/` | Ảnh đã tải lên (ảnh xem trước khi gửi link) |
 | `data/backups/` | Server tự sao lưu `db.json` trước khi ghi (tối đa 10 phút một bản, giữ 60 bản gần nhất) |
 
 Nên tải bản sao lưu về máy định kỳ: trong **Quản trị › Sao lưu dữ liệu › Tải bản sao lưu (.json)**.

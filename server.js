@@ -27,11 +27,14 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
 const VIEWS_FILE = path.join(DATA_DIR, 'views.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+const MAX_UPLOAD = 5 * 1024 * 1024;
 const SESSION_HOURS = 12;
 const MAX_BODY = 5 * 1024 * 1024;
 const MAX_BACKUPS = 60;
 
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 /* ---------- Tiện ích file ---------- */
 function readJSON(file, fallback) {
@@ -169,6 +172,77 @@ function readBody(req) {
     req.on('error', reject);
   });
 }
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    let size = 0; const chunks = [];
+    req.on('data', c => {
+      size += c.length;
+      if (size > limit) { reject(Object.assign(new Error('Ảnh quá lớn (tối đa 5 MB)'), { status: 413 })); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+// Nhận dạng ảnh theo nội dung file, không tin phần mở rộng
+function imageExt(b) {
+  if (b.length < 12) return '';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return '.png';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return '.jpg';
+  if (b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return '.webp';
+  if (b.toString('ascii', 0, 4) === 'GIF8') return '.gif';
+  return '';
+}
+
+/* ---------- Thẻ xem trước khi gửi link (Facebook, Zalo, Google) ---------- */
+const escAttr = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function seoTags(req) {
+  const s = db.settings || {};
+  const proto = isHttps(req) ? 'https' : 'http';
+  const origin = `${proto}://${req.headers.host || 'localhost'}`;
+  const title = (s.seoTitle || '').trim() || [s.siteName, s.tagline].filter(Boolean).join(' – ') || 'Bảng giá cày thuê';
+  const desc = (s.seoDesc || '').trim() || (s.heroText || '').trim();
+  let img = (s.seoImage || '').trim();
+  if (img && !/^https?:\/\//i.test(img)) img = origin + '/' + img.replace(/^\/+/, '');
+  const t = [
+    `<title>${escAttr(title)}</title>`,
+    `<meta name="description" content="${escAttr(desc)}">`,
+    `<link rel="canonical" href="${escAttr(origin + '/')}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="${escAttr(s.siteName || '')}">`,
+    `<meta property="og:title" content="${escAttr(title)}">`,
+    `<meta property="og:description" content="${escAttr(desc)}">`,
+    `<meta property="og:url" content="${escAttr(origin + '/')}">`,
+    `<meta property="og:locale" content="vi_VN">`,
+    `<meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}">`,
+    `<meta name="twitter:title" content="${escAttr(title)}">`,
+    `<meta name="twitter:description" content="${escAttr(desc)}">`
+  ];
+  if (img) t.push(`<meta property="og:image" content="${escAttr(img)}">`, `<meta property="og:image:alt" content="${escAttr(title)}">`, `<meta name="twitter:image" content="${escAttr(img)}">`);
+  return t.join('\n  ');
+}
+function serveIndex(req, res) {
+  fs.readFile(path.join(ROOT, 'index.html'), 'utf8', (err, html) => {
+    if (err) return notFound(res);
+    html = html.replace(/<!--SEO-->[\s\S]*?<!--\/SEO-->/, seoTags(req));
+    const headers = { ...SEC_HEADERS, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' };
+    let body = Buffer.from(html);
+    if (/\bgzip\b/.test(req.headers['accept-encoding'] || '')) { body = zlib.gzipSync(body); headers['Content-Encoding'] = 'gzip'; headers.Vary = 'Accept-Encoding'; }
+    res.writeHead(200, headers);
+    res.end(req.method === 'HEAD' ? undefined : body);
+  });
+}
+function serveUpload(req, res, name) {
+  if (!/^[a-f0-9]{16}\.(png|jpg|webp|gif)$/.test(name)) return notFound(res);
+  const file = path.join(UPLOAD_DIR, name);
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) return notFound(res);
+    res.writeHead(200, { ...SEC_HEADERS, 'Content-Type': MIME[path.extname(name)], 'Content-Length': st.size, 'Cache-Control': 'public, max-age=31536000, immutable' });
+    if (req.method === 'HEAD') return res.end();
+    fs.createReadStream(file).pipe(res);
+  });
+}
+
 // Chống gửi yêu cầu giả từ trang khác
 function sameOrigin(req) {
   if (req.headers['x-requested-with'] !== 'fetch') return false;
@@ -229,6 +303,15 @@ async function handleApi(req, res, route) {
     writeJSON(DB_FILE, db);
     return sendJSON(res, 200, { ok: true, updatedAt: db.updatedAt });
   }
+  if (route === 'upload' && m === 'POST') {
+    const buf = await readRaw(req, MAX_UPLOAD);
+    const ext = imageExt(buf);
+    if (!ext) return sendJSON(res, 400, { error: 'Chỉ nhận ảnh PNG, JPG, WEBP hoặc GIF.' });
+    const name = crypto.randomBytes(8).toString('hex') + ext;
+    fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+    log('Đã tải ảnh lên:', name);
+    return sendJSON(res, 200, { ok: true, path: 'uploads/' + name });
+  }
   if (route === 'password' && m === 'POST') {
     const body = await readBody(req);
     if (!checkHash(String(body.current || ''), auth)) return sendJSON(res, 400, { error: 'Mật khẩu hiện tại không đúng.', field: 'cur' });
@@ -260,6 +343,8 @@ function serveStatic(req, res, pathname) {
   let rel = decodeURIComponent(pathname).replace(/^\/+/, '');
   if (rel === '' ) rel = 'index.html';
   if (rel === 'admin') rel = 'admin.html';
+  if (rel === 'index.html') return serveIndex(req, res);
+  if (rel.startsWith('uploads/')) return serveUpload(req, res, rel.slice(8));
   // Chỉ cho phép trang chính và thư mục assets
   const allowed = rel === 'index.html' || rel === 'admin.html' || rel === 'favicon.ico' || rel === 'robots.txt' || rel.startsWith('assets/');
   const file = path.resolve(ROOT, rel);

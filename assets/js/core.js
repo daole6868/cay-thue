@@ -239,6 +239,15 @@
       if (mode === 'server') { cache = normalize(clone(window.DEFAULT_DATA)); Store.save(); return; }
       ls.del(KEY); cache = null;
     },
+    // Tải ảnh lên máy chủ, trả về đường dẫn dạng uploads/xxxx.png
+    async upload(file) {
+      if (mode !== 'server') throw new Error('Tải ảnh chỉ dùng được khi web chạy trên máy chủ (server.js).');
+      if (file.size > 5 * 1024 * 1024) throw new Error('Ảnh quá lớn, tối đa 5 MB.');
+      const r = await fetch('api/upload', { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch', 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+      let j = null; try { j = await r.json(); } catch (e) { /* bỏ qua */ }
+      if (!r.ok) throw new Error((j && j.error) || 'Tải ảnh thất bại (' + r.status + ')');
+      return j.path;
+    },
     hasLocal() { return mode === 'server' || ls.get(KEY, null) != null; },
     on(fn) { subs.add(fn); },
     game(id) { return Store.get().games.find(x => x.id === id); },

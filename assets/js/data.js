@@ -182,6 +182,11 @@
       maintenanceText: "Website đang cập nhật bảng giá. Vui lòng quay lại sau ít phút hoặc nhắn Zalo để được báo giá ngay.",
       passwordHash: "",
 
+      // Khung xem trước khi gửi link (Facebook, Zalo, Messenger, Google)
+      seoTitle: "",
+      seoDesc: "",
+      seoImage: "",
+
       // Chân trang
       footerAbout: "Bảng giá cày thuê minh bạch cho game thủ bận rộn. Chơi tay 100%, báo tiến độ mỗi ngày, hoàn tiền nếu không đạt.",
       footerSocial: true,

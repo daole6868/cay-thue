@@ -1090,7 +1090,24 @@
       if (type === 'area') return `<div class="field"><label for="s-${k}">${label}</label><textarea class="textarea" id="s-${k}" data-k="${k}" rows="3">${U.esc(s[k])}</textarea>${h}</div>`;
       return `<div class="field"><label for="s-${k}">${label}</label><input class="input" id="s-${k}" data-k="${k}" type="${type === 'number' ? 'number' : 'text'}" value="${U.esc(s[k])}" ${attrs || ''}>${h}</div>`;
     };
+    const server = Store.mode === 'server';
     v.innerHTML = `<div class="settings">
+      <section class="panel full"><div class="panel-h"><span class="ph-ic">${I('send', 18)}</span><div><h2>Khi gửi link website (Facebook, Zalo, Messenger, Google)</h2><p class="muted small">Tiêu đề, mô tả và ảnh hiện ra trong khung xem trước khi ai đó gửi link trang của bạn.</p></div></div>
+        <div class="panel-b seo-grid">
+          <div class="form-stack">
+            <div class="field"><label for="s-seoTitle">Tiêu đề</label><input class="input" id="s-seoTitle" data-k="seoTitle" maxlength="90" value="${U.esc(s.seoTitle || '')}" placeholder="${U.esc([s.siteName, s.tagline].filter(Boolean).join(' – '))}"><span class="hint">Để trống = Tên website – Khẩu hiệu</span></div>
+            <div class="field"><label for="s-seoDesc">Mô tả</label><textarea class="textarea" id="s-seoDesc" data-k="seoDesc" rows="3" maxlength="300" placeholder="${U.esc(s.heroText || '')}">${U.esc(s.seoDesc || '')}</textarea><span class="hint" id="seoCount"></span></div>
+            <div class="field"><label for="s-seoImage">Ảnh xem trước</label><input class="input" id="s-seoImage" data-k="seoImage" value="${U.esc(s.seoImage || '')}" placeholder="${server ? 'Bấm Tải ảnh lên, hoặc dán link ảnh https://…' : 'Dán link ảnh https://…'}"><span class="hint">Khuyên dùng ảnh ngang 1200 × 630 px, dưới 5 MB (PNG, JPG, WEBP).</span></div>
+            <div class="toolbar">
+              <label class="btn btn-ghost btn-sm${server ? '' : ' disabled'}" title="${server ? 'Chọn ảnh từ máy' : 'Chỉ dùng được khi chạy trên máy chủ'}">${I('upload', 15)}<span id="seoUpTxt">Tải ảnh lên</span><input type="file" id="seoFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden ${server ? '' : 'disabled'}></label>
+              <button class="btn btn-ghost btn-sm" type="button" data-act="seo-clear">${I('trash', 15)}Bỏ ảnh</button>
+            </div>
+          </div>
+          <div class="seo-side">
+            <div class="og-card" id="ogCard"></div>
+            <p class="hint">Facebook và Zalo lưu tạm bản xem trước cũ. Sau khi đổi, dán link vào <a href="https://developers.facebook.com/tools/debug/" target="_blank" rel="noopener">Facebook Sharing Debugger</a> và bấm <b>Scrape Again</b>. Với Zalo, gửi link kèm đuôi mới như <code>${U.esc(location.host || 'gachaz.shop')}/?v=2</code> để hiện bản mới.</p>
+          </div>
+        </div></section>
       ${SF.map(sec => `<section class="panel"><div class="panel-h"><span class="ph-ic">${I(sec.i, 18)}</span><h2>${sec.t}</h2></div><div class="panel-b form-stack">${sec.f.map(field).join('')}</div></section>`).join('')}
       <section class="panel"><div class="panel-h"><span class="ph-ic">${I('palette', 18)}</span><h2>Màu chủ đạo</h2></div>
         <div class="panel-b form-stack"><div class="accents">${Object.entries(UI.ACCENTS).map(([k, a]) => `<button type="button" class="acc${s.accent === k ? ' on' : ''}" data-acc="${k}" style="--c:${a.l}"><span class="acc-sw">${I('check', 16)}</span><span>${a.name}</span></button>`).join('')}</div>
@@ -1106,13 +1123,39 @@
         </form></section>
     </div>
     ${saveBar()}`;
+    // Khung xem trước giống Facebook/Zalo
+    const ogPreview = () => {
+      const title = (s.seoTitle || '').trim() || [s.siteName, s.tagline].filter(Boolean).join(' – ');
+      const desc = (s.seoDesc || '').trim() || (s.heroText || '').trim();
+      const img = (s.seoImage || '').trim();
+      $('#ogCard', v).innerHTML = `<div class="og-img">${img ? `<img src="${U.esc(img)}" alt="" onerror="this.parentNode.classList.add('bad')">` : ''}<span>${img ? 'Không tải được ảnh' : 'Chưa có ảnh xem trước'}</span></div>
+        <div class="og-body"><small>${U.esc((location.host || 'ten-mien.vn').toUpperCase())}</small><b>${U.esc(title)}</b><p>${U.esc(desc)}</p></div>`;
+      const n = (s.seoDesc || '').length;
+      $('#seoCount', v).textContent = `Nên dài 1–2 câu (khoảng 150 ký tự). Hiện có ${n} ký tự.`;
+      $('#seoCount', v).classList.toggle('warn', n > 200);
+    };
+    ogPreview();
     const onField = e => {
       const t = e.target, k = t.dataset.k; if (!k) return;
       s[k] = t.type === 'checkbox' ? t.checked : t.type === 'number' ? Number(t.value) : t.value;
       setDirty(true);
+      if (/^seo|^siteName$|^tagline$|^heroText$/.test(k)) ogPreview();
     };
     v.oninput = onField; v.onchange = onField;
+    $('#seoFile', v).addEventListener('change', async e => {
+      const f = e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      const txt = $('#seoUpTxt', v); txt.textContent = 'Đang tải…';
+      try {
+        const pth = await Store.upload(f);
+        s.seoImage = pth; $('#s-seoImage', v).value = pth;
+        setDirty(true); ogPreview();
+        UI.toast('Đã tải ảnh lên. Bấm Lưu thay đổi để áp dụng.');
+      } catch (err) { UI.toast(err.message, 'err'); }
+      txt.textContent = 'Tải ảnh lên';
+    });
     v.onclick = e => {
+      if (e.target.closest('[data-act="seo-clear"]')) { s.seoImage = ''; $('#s-seoImage', v).value = ''; setDirty(true); ogPreview(); return; }
       const a = e.target.closest('[data-acc]');
       if (a) {
         s.accent = a.dataset.acc; UI.applyAccent(s.accent);
